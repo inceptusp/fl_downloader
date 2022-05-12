@@ -7,6 +7,7 @@ import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
+import android.os.SystemClock
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -101,10 +102,18 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
   suspend fun trackProgress(downloadId: Long?) {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     var finishDownload = false
-    var lastProgress = 0
-    var progress: Int
+    var lastProgress = -1
+    var progress = 0
     withContext(Dispatchers.Main) {
-      channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 2))
+      channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 2))
+    }
+    val timerCoroutine = CoroutineScope(Dispatchers.Default).launch {
+      SystemClock.sleep(15000)
+      finishDownload = true;
+      withContext(Dispatchers.Main) {
+        channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 4))
+      }
+      manager.remove(downloadId!!)
     }
     while (!finishDownload) {
       val cursor: Cursor = manager.query(Query().setFilterById(downloadId!!))
@@ -126,8 +135,18 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
                       cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
                   )
               progress = (downloaded * 100L / total).toInt()
-              withContext(Dispatchers.Main) {
-                channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 3))
+              if(progress != lastProgress) {
+                lastProgress = progress
+                withContext(Dispatchers.Main) {
+                  channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 3))
+                }
+              }
+            } else {
+              if(progress != lastProgress) {
+                lastProgress = 0
+                withContext(Dispatchers.Main) {
+                  channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 3))
+                }
               }
             }
           }
@@ -140,6 +159,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
             val total =
                 cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
             if (total >= 0) {
+              if(timerCoroutine.isActive) timerCoroutine.cancel()
               val downloaded =
                   cursor.getLong(
                       cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
@@ -155,10 +175,11 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
           }
           DownloadManager.STATUS_SUCCESSFUL -> {
             progress = 100
+            finishDownload = true
+            if(timerCoroutine.isActive) timerCoroutine.cancel()
             withContext(Dispatchers.Main) {
               channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 0))
             }
-            finishDownload = true
           }
         }
       }
