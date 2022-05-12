@@ -1,0 +1,76 @@
+import 'package:flutter/material.dart';
+import 'package:fl_downloader/fl_downloader.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatefulWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final TextEditingController urlController = TextEditingController(
+    text:
+        'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+  );
+
+  int progress = 0;
+
+  @override
+  void initState() {
+    FlDownloader.initialize();
+    FlDownloader.progressStream.listen((event) {
+      if (event.status == DownloadStatus.successful) {
+        setState(() {
+          progress = event.progress;
+        });
+        FlDownloader.openFile(event.downloadId);
+      } else if (event.status == DownloadStatus.running) {
+        setState(() {
+          progress = event.progress;
+        });
+      }
+    });
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(
+          title: const Text('FlDownloader example app'),
+        ),
+        body: Column(
+          children: [
+            if (progress > 0 && progress < 100)
+              LinearProgressIndicator(
+                value: progress / 100,
+                color: Colors.orange,
+              ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextField(
+                  controller: urlController,
+                ),
+              ),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          child: const Icon(Icons.file_download),
+          onPressed: () async {
+            await FlDownloader.download(
+              urlController.text,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
