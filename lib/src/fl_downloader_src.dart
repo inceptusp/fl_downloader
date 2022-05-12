@@ -9,7 +9,9 @@ class FlDownloader {
   static const MethodChannel _channel = MethodChannel(
     'dev.inceptusp.fl_downloader',
   );
-  static final StreamController<Progress> _progressStream = StreamController();
+  static final StreamController<Progress> _progressStream = StreamController(
+    onCancel: () => _progressStream.stream.drain(),
+  );
 
   static Stream<Progress> get progressStream => _progressStream.stream;
 
