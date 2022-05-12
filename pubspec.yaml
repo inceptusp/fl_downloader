@@ -1,7 +1,10 @@
 name: fl_downloader
-description: A new flutter plugin project.
+description: A plugin to download files using the native capabilities.
 version: 0.0.1
 #homepage:
+repository: https://github.com/inceptusp/fl_downloader
+publish_to: https://pub.dev/
+
 environment:
   sdk: ">=2.16.2 <3.0.0"
   flutter: ">=2.5.0"
@@ -9,8 +12,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  http: ^0.13.4
-  path_provider: ^2.0.10
 
 dev_dependencies:
   flutter_lints: ^1.0.0
@@ -23,5 +24,5 @@ flutter:
       android:
         package: dev.inceptusp.fl_downloader
         pluginClass: FlDownloaderPlugin
-      ios:
-        pluginClass: FlDownloaderPlugin
+      # ios:
+      #   pluginClass: FlDownloaderPlugin
