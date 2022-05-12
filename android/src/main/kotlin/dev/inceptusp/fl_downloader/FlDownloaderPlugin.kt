@@ -8,7 +8,6 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
 import android.webkit.MimeTypeMap
-import androidx.annotation.NonNull
 import androidx.core.content.FileProvider
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
@@ -25,15 +24,13 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
   private lateinit var channel: MethodChannel
   private lateinit var context: Context
 
-  override fun onAttachedToEngine(
-      @NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding
-  ) {
+  override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     channel = MethodChannel(flutterPluginBinding.binaryMessenger, "dev.inceptusp.fl_downloader")
     channel.setMethodCallHandler(this)
     context = flutterPluginBinding.applicationContext
   }
 
-  override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
+  override fun onMethodCall(call: MethodCall, result: Result) {
     if (call.method == "download") {
       val downloadId = download(call.argument("url"), call.argument("headers"), call.argument("fileName"))
       CoroutineScope(Dispatchers.Default).launch {
@@ -53,7 +50,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
     }
   }
 
-  override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+  override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     channel.setMethodCallHandler(null)
   }
 
@@ -66,7 +63,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
         Environment.DIRECTORY_DOWNLOADS,
         fileName ?: "/${uri.lastPathSegment}"
     )
-    for (header in headers?.keys ?: listOf()) {
+    for (header in headers?.keys ?: emptyList()) {
       request.addRequestHeader(header, headers!![header])
     }
     return manager.enqueue(request)
@@ -93,6 +90,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
               .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
       )
     }
+    cursor.close()
   }
 
   fun cancelDownload(vararg downloadIds: Long): Int {
