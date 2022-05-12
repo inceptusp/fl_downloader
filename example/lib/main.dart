@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:fl_downloader/fl_downloader.dart';
 
@@ -19,11 +21,12 @@ class _MyAppState extends State<MyApp> {
   );
 
   int progress = 0;
+  late StreamSubscription progressStream;
 
   @override
   void initState() {
     FlDownloader.initialize();
-    FlDownloader.progressStream.listen((event) {
+    progressStream = FlDownloader.progressStream.listen((event) {
       if (event.status == DownloadStatus.successful) {
         setState(() {
           progress = event.progress;
@@ -36,6 +39,12 @@ class _MyAppState extends State<MyApp> {
       }
     });
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    progressStream.cancel();
+    super.dispose();
   }
 
   @override
