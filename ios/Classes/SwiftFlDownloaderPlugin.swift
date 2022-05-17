@@ -15,8 +15,8 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     if call.method == "download" {
       download(call.arguments["url"] as! String,
-               call.arguments["headers"] as! [String: String],
-               call.arguments["fileName"] as! String)
+               call.arguments["headers"] as? [String: String],
+               call.arguments["fileName"] as? String)
       result(nil)
     } else if call.method == "openFile" {
       openFile()
@@ -29,7 +29,7 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
     }
   }
 
-  public func download(url: String, headers: [String: String]?, fileName: String) {
+  public func download(url: String, headers: [String: String]?, fileName: String?) {
     let request: URLRequest = {
       var request = URLRequest(url: URL(string: url)!)
       for (key, value) in headers ?? [:] {
