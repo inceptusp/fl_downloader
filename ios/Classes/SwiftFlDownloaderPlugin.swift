@@ -1,7 +1,7 @@
 import Flutter
 import UIKit
 
-public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
+public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin, URLSessionDelegate {
   private lazy var urlSession = URLSession(configuration: .default,
                                            delegate: self,
                                            delegateQueue: nil)
@@ -13,10 +13,11 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+      let arguments: Dictionary<String, Any> = call.arguments as! Dictionary<String, Any>
     if call.method == "download" {
-      download(call.arguments["url"] as! String,
-               call.arguments["headers"] as? [String: String],
-               call.arguments["fileName"] as? String)
+      download(url: arguments["url"] as! String,
+              headers: arguments["headers"] as? [String: String],
+              fileName: arguments["fileName"] as? String)
       result(nil)
     } else if call.method == "openFile" {
       openFile()
