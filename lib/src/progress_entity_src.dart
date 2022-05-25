@@ -6,6 +6,7 @@ enum DownloadStatus {
   pending,
   paused,
   failed,
+  canceling,
 }
 
 class Progress {
