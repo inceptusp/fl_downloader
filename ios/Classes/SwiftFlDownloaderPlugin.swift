@@ -6,11 +6,6 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin, URLSessionDelegat
     public static var channel : FlutterMethodChannel?
     
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo fileURL: URL) {
-        SwiftFlDownloaderPlugin.channel?.invokeMethod("notifyProgress", arguments:[
-            "downloadId": downloadTask.taskIdentifier,
-            "progress": 100,
-            "status": 0,
-        ])
         do {
             let documentsURL = try
             FileManager.default.url(for: .downloadsDirectory,
@@ -19,6 +14,12 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin, URLSessionDelegat
                                        create: true)
             let savedURL = documentsURL.appendingPathComponent(fileURL.lastPathComponent)
             try FileManager.default.moveItem(at: fileURL, to: savedURL)
+            SwiftFlDownloaderPlugin.channel?.invokeMethod("notifyProgress", arguments:[
+                "downloadId": downloadTask.taskIdentifier,
+                "progress": 100,
+                "status": 0,
+                "filePath": savedURL
+            ])
         } catch {
             print ("file error: \(error)")
         }

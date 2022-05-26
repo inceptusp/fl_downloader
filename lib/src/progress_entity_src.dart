@@ -10,14 +10,16 @@ enum DownloadStatus {
 }
 
 class Progress {
-  int downloadId;
-  int progress;
-  DownloadStatus status;
+  final int downloadId;
+  final int progress;
+  final DownloadStatus status;
+  late final String? filePath;
 
   Progress({
     required this.downloadId,
     required this.progress,
     required this.status,
+    this.filePath,
   });
 
   factory Progress._fromMap(Map<String, dynamic> map) {
@@ -25,11 +27,12 @@ class Progress {
       downloadId: map['downloadId'],
       progress: map['progress'],
       status: DownloadStatus.values[map['status']],
+      filePath: map.containsKey('filePath') ? map['filePath'] : null,
     );
   }
 
   @override
   String toString() {
-    return 'Progress{downloadId: $downloadId, progress: $progress, status: $status}';
+    return 'Progress{downloadId: $downloadId, progress: $progress, status: $status, filePath: $filePath}';
   }
 }

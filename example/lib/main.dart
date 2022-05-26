@@ -16,7 +16,8 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final TextEditingController urlController = TextEditingController(
-    text: 'https://www.enel.com.br/content/dam/enel-br/one-hub-brasil---2018/sp/documents/Lig%20BT.pdf',
+    text:
+        'https://www.enel.com.br/content/dam/enel-br/one-hub-brasil---2018/sp/documents/Lig%20BT.pdf',
   );
 
   int progress = 0;
@@ -30,7 +31,9 @@ class _MyAppState extends State<MyApp> {
         setState(() {
           progress = event.progress;
         });
-        FlDownloader.openFile(event.downloadId);
+        FlDownloader.openFile(
+          filePath: event.filePath,
+        );
       } else if (event.status == DownloadStatus.running) {
         setState(() {
           progress = event.progress;
