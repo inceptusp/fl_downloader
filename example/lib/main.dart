@@ -76,9 +76,8 @@ class _MyAppState extends State<MyApp> {
         floatingActionButton: FloatingActionButton(
           child: const Icon(Icons.file_download),
           onPressed: () async {
-            await FlDownloader.download(
-              urlController.text,
-            );
+            await FlDownloader.download(urlController.text,
+                fileName: 'teste.pdf');
           },
         ),
       ),
