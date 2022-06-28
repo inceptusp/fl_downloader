@@ -47,11 +47,11 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
         let prefs = UserDefaults.standard;
         if prefs.object(forKey: "downloadNames") != nil {
             var downloadNames = prefs.array(forKey: "downloadNames")
-            let dict = ["taskId": downloadTask.taskIdentifier,
+            let dict = ["url": downloadTask.originalRequest?.url?.absoluteString ?? "",
                         "fileName": fileName ?? ""] as [String : Any]
             downloadNames?.append(dict)
         } else {
-            let dict = ["taskId": downloadTask.taskIdentifier,
+            let dict = ["url": downloadTask.originalRequest?.url?.absoluteString ?? "",
                         "fileName": fileName ?? ""] as [String : Any]
             let list: Array = [dict]
             prefs.set(list, forKey: "downloadNames")
@@ -87,9 +87,9 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
         var downloadNames = UserDefaults.standard.array(forKey: "downloadNames")
         var fileName: String?
         do {
-            if let dict = downloadNames?.first(where: { ($0 as! Dictionary<String, Any>)["taskId"] as! Int == downloadTask.taskIdentifier }) {
+            if let dict = downloadNames?.first(where: { ($0 as! Dictionary<String, Any>)["url"] as! String == downloadTask.originalRequest?.url?.absoluteString ?? ""}) {
                 fileName = (dict as! Dictionary<String, Any>)["fileName"] as? String
-                downloadNames?.removeAll(where: { ($0 as! Dictionary<String, Any>)["taskId"] as! Int == (dict as! Dictionary<String, Any>)["taskId"] as! Int })
+                downloadNames?.removeAll(where: { ($0 as! Dictionary<String, Any>)["url"] as! String == (dict as! Dictionary<String, Any>)["url"] as! String })
             }
             
             let documentsURL = try
@@ -99,7 +99,6 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                                     create: true)
             let filename = fileName ?? downloadTask.currentRequest?.url?.lastPathComponent ?? ""
             let savedURL = documentsURL.appendingPathComponent(filename)
-            print(savedURL)
             do {
                 try FileManager.default.removeItem(at: savedURL)
             } catch {}
