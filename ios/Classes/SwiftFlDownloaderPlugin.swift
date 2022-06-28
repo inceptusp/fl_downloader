@@ -43,6 +43,20 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
 
         let downloadTask = urlSession.downloadTask(with: request)
         downloadTask.resume()
+        
+        let prefs = UserDefaults.standard;
+        if prefs.object(forKey: "downloadNames") != nil {
+            var downloadNames = prefs.array(forKey: "downloadNames")
+            let dict = ["taskId": downloadTask.taskIdentifier,
+                        "fileName": fileName ?? ""] as [String : Any]
+            downloadNames?.append(dict)
+        } else {
+            let dict = ["taskId": downloadTask.taskIdentifier,
+                        "fileName": fileName ?? ""] as [String : Any]
+            let list: Array = [dict]
+            prefs.set(list, forKey: "downloadNames")
+        }
+        
         return downloadTask.taskIdentifier
     }
 
@@ -70,13 +84,20 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
 
 extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegate {
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo fileURL: URL) {
+        var downloadNames = UserDefaults.standard.array(forKey: "downloadNames")
+        var fileName: String?
         do {
+            if let dict = downloadNames?.first(where: { ($0 as! Dictionary<String, Any>)["taskId"] as! Int == downloadTask.taskIdentifier }) {
+                fileName = (dict as! Dictionary<String, Any>)["fileName"] as? String
+                downloadNames?.removeAll(where: { ($0 as! Dictionary<String, Any>)["taskId"] as! Int == (dict as! Dictionary<String, Any>)["taskId"] as! Int })
+            }
+            
             let documentsURL = try
             FileManager.default.url(for: .documentDirectory,
                                     in: .userDomainMask,
                                     appropriateFor: nil,
                                     create: true)
-            let filename = downloadTask.currentRequest?.url?.lastPathComponent ?? ""
+            let filename = fileName ?? downloadTask.currentRequest?.url?.lastPathComponent ?? ""
             let savedURL = documentsURL.appendingPathComponent(filename)
             print(savedURL)
             do {
