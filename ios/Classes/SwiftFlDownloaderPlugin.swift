@@ -1,4 +1,5 @@
 import Flutter
+import os
 import UIKit
 
 public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
@@ -88,6 +89,8 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
         var downloadNames = UserDefaults.standard.array(forKey: "downloadNames")
         var fileName: String?
         do {
+            let httpResponse = downloadTask.response as! HTTPURLResponse;
+            if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
             if let dict = downloadNames?.first(where: { ($0 as! Dictionary<String, Any>)["url"] as! String == downloadTask.originalRequest?.url?.absoluteString ?? ""}) {
                 fileName = (dict as! Dictionary<String, Any>)["fileName"] as? String
                 downloadNames?.removeAll(where: { ($0 as! Dictionary<String, Any>)["url"] as! String == (dict as! Dictionary<String, Any>)["url"] as! String })
@@ -111,6 +114,19 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                 "status": 0,
                 "filePath": savedURL.absoluteString
             ])
+            } else {
+                if #available(iOS 14.0, *) {
+                    let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "fl_downloader")
+                    logger.debug("Download failed. HTTP Status \(httpResponse.statusCode)")
+                } else {
+                    NSLog("Download failed. HTTP Status %d", httpResponse.statusCode)
+                }
+                SwiftFlDownloaderPlugin.channel?.invokeMethod("notifyProgress", arguments:[
+                    "downloadId": downloadTask.taskIdentifier,
+                    "progress": 0,
+                    "status": 4,
+                ])
+            }
         } catch {
             print ("Error saving downloaded file: \(error)")
         }
