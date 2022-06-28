@@ -50,6 +50,7 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
             let dict = ["url": downloadTask.originalRequest?.url?.absoluteString ?? "",
                         "fileName": fileName ?? ""] as [String : Any]
             downloadNames?.append(dict)
+            prefs.set(downloadNames, forKey: "downloadNames")
         } else {
             let dict = ["url": downloadTask.originalRequest?.url?.absoluteString ?? "",
                         "fileName": fileName ?? ""] as [String : Any]
@@ -90,6 +91,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
             if let dict = downloadNames?.first(where: { ($0 as! Dictionary<String, Any>)["url"] as! String == downloadTask.originalRequest?.url?.absoluteString ?? ""}) {
                 fileName = (dict as! Dictionary<String, Any>)["fileName"] as? String
                 downloadNames?.removeAll(where: { ($0 as! Dictionary<String, Any>)["url"] as! String == (dict as! Dictionary<String, Any>)["url"] as! String })
+                UserDefaults.standard.set(downloadNames, forKey: "downloadNames")
             }
             
             let documentsURL = try
