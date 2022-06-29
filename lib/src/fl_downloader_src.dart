@@ -15,6 +15,7 @@ class FlDownloader {
 
   static Stream<Progress> get progressStream => _progressStream.stream;
 
+  /// Initializes the plugin and open the stream to listen to download progress
   static Future initialize() async {
     _channel.setMethodCallHandler((call) {
       if (call.method == 'notifyProgress') {
