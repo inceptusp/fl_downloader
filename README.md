@@ -1,4 +1,5 @@
 # fl_downloader
+[![Pub Version](https://img.shields.io/pub/v/fl_downloader)](https://pub.dev/packages/fl_downloader)
 
 A plugin to download files using the native capabilities.
 
