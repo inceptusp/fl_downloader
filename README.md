@@ -10,7 +10,7 @@ If you don`t want to show downloaded files to the user on the Files app, there i
 
 If you want to show downloaded files to the user on the Files app, add the following lines to your **info.plist** file:
 
-``` plist
+``` xml
 <key>LSSupportsOpeningDocumentsInPlace</key>
 <true/>
 <key>UIFileSharingEnabled</key>
