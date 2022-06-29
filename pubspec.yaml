@@ -3,7 +3,6 @@ description: A plugin to download files using the native capabilities.
 version: 1.0.0
 #homepage:
 repository: https://github.com/inceptusp/fl_downloader
-publish_to: https://pub.dev/
 
 environment:
   sdk: ">=2.16.2 <3.0.0"
