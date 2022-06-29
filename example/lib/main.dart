@@ -17,7 +17,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final TextEditingController urlController = TextEditingController(
     text:
-        'https://www.enel.com.br/content/dam/enel-br/one-hub-brasil---2018/sp/documents/Lig%20BT.pdf',
+        'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
   );
 
   int progress = 0;
