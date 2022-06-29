@@ -40,7 +40,8 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
       result.success(downloadId)
     } else if (call.method == "openFile") {
       val downloadId: Int? = call.argument("downloadId")
-      openFile(downloadId?.toLong())
+      val filePath: String? = call.argument("filePath")
+      openFile(downloadId?.toLong(), filePath)
       result.success(null)
     } else if (call.method == "cancel") {
       val downloadIds: LongArray = call.argument("downloadIds")!!
@@ -70,28 +71,32 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
     return manager.enqueue(request)
   }
 
-  fun openFile(downloadId: Long?) {
+  fun openFile(downloadId: Long?, filePath: String?) {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-    val cursor = manager.query(Query().setFilterById(downloadId!!))
+    var downloadedTo : String? = filePath
 
-    if (cursor.moveToFirst()) {
-      val downloadedTo = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
-      val authority = context.applicationContext.packageName + ".flDownloader.provider"
-      val fileUri = Uri.parse(downloadedTo)
-      val mimeMap = MimeTypeMap.getSingleton()
-      val ext = MimeTypeMap.getFileExtensionFromUrl(fileUri.path)
-      var type = mimeMap.getMimeTypeFromExtension(ext)
-      if (type == null) type = "*/*"
-      val uri = FileProvider.getUriForFile(context, authority, File(fileUri.path!!))
-
-      context.startActivity(
-          Intent(Intent.ACTION_VIEW)
-              .setDataAndType(uri, type)
-              .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-              .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-      )
+    if(filePath == null) {
+      val cursor = manager.query(Query().setFilterById(downloadId!!))
+      if (cursor.moveToFirst()) {
+        downloadedTo = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
+      }
+      cursor.close()
     }
-    cursor.close()
+
+    val authority = context.applicationContext.packageName + ".flDownloader.provider"
+    val fileUri = Uri.parse(downloadedTo)
+    val mimeMap = MimeTypeMap.getSingleton()
+    val ext = MimeTypeMap.getFileExtensionFromUrl(fileUri.path)
+    var type = mimeMap.getMimeTypeFromExtension(ext)
+    if (type == null) type = "*/*"
+    val uri = FileProvider.getUriForFile(context, authority, File(fileUri.path!!))
+
+    context.startActivity(
+        Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, type)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    )
   }
 
   fun cancelDownload(vararg downloadIds: Long): Int {
@@ -174,11 +179,12 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
             }
           }
           DownloadManager.STATUS_SUCCESSFUL -> {
+            val filePath = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
             progress = 100
             finishDownload = true
             if(timerCoroutine.isActive) timerCoroutine.cancel()
             withContext(Dispatchers.Main) {
-              channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 0))
+              channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 0, "filePath" to filePath))
             }
           }
         }

@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:fl_downloader/fl_downloader.dart';
+import 'package:flutter/material.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,7 +31,9 @@ class _MyAppState extends State<MyApp> {
         setState(() {
           progress = event.progress;
         });
-        FlDownloader.openFile(event.downloadId);
+        FlDownloader.openFile(
+          filePath: event.filePath,
+        );
       } else if (event.status == DownloadStatus.running) {
         setState(() {
           progress = event.progress;
@@ -74,9 +76,8 @@ class _MyAppState extends State<MyApp> {
         floatingActionButton: FloatingActionButton(
           child: const Icon(Icons.file_download),
           onPressed: () async {
-            await FlDownloader.download(
-              urlController.text,
-            );
+            await FlDownloader.download(urlController.text,
+                fileName: 'teste.pdf');
           },
         ),
       ),
