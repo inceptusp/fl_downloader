@@ -113,7 +113,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                                     in: .userDomainMask,
                                     appropriateFor: nil,
                                     create: true)
-            let filename = fileName ?? downloadTask.currentRequest?.url?.lastPathComponent ?? "UnknownFileName"
+            let filename = fileName!.isEmpty ? downloadTask.currentRequest?.url?.lastPathComponent ?? "UnknownFileName" : fileName!
             let savedURL = documentsURL.appendingPathComponent(filename)
             do {
                 try FileManager.default.removeItem(at: savedURL)
