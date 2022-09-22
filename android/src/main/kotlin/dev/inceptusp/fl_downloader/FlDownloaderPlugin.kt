@@ -169,7 +169,9 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
                   cursor.getLong(
                       cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
                   )
-              progress = (downloaded * 100L / total).toInt()
+              if(total != 0L) {
+                progress = (downloaded * 100L / total).toInt()
+              }
               if(progress != lastProgress) {
                 lastProgress = progress
                 withContext(Dispatchers.Main) {
