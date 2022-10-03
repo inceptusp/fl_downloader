@@ -1,3 +1,7 @@
+## 1.0.4
+
+* Updated Dart to 2.18 and Flutter 3
+
 ## 1.0.3
 
 * Fixed Android `divideByZero` exception
