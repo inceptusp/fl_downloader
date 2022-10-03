@@ -1,6 +1,6 @@
 ## 1.0.4
 
-* Updated Dart to 2.18 and Flutter 3
+* Updated Dart to 2.18 and Flutter 3.3
 * Renamed `Progress` class to `DownloadProgress` to avoid collision with other classes or plugins
 
 ## 1.0.3
