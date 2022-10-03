@@ -10,11 +10,11 @@ class FlDownloader {
   static const MethodChannel _channel = MethodChannel(
     'dev.inceptusp.fl_downloader',
   );
-  
-  static final StreamController<Progress> _progressStream =
+
+  static final StreamController<DownloadProgress> _progressStream =
       StreamController.broadcast();
 
-  static Stream<Progress> get progressStream => _progressStream.stream;
+  static Stream<DownloadProgress> get progressStream => _progressStream.stream;
 
   /// Initializes the plugin and open the stream to listen to download progress
   static Future initialize() async {
@@ -22,7 +22,7 @@ class FlDownloader {
       if (call.method == 'notifyProgress') {
         final map = call.arguments as Map;
         _progressStream.add(
-          Progress._fromMap(<String, dynamic>{...map}),
+          DownloadProgress._fromMap(<String, dynamic>{...map}),
         );
       }
       return Future.value(null);
