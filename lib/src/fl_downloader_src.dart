@@ -31,6 +31,8 @@ class FlDownloader {
 
   /// Create and starts a downlaod task on a local URLSession on iOS or
   /// on the system download manager on Android
+  ///
+  /// Returns the id of the download task
   static Future<int> download(
     String url, {
     Map<String, String>? headers,
