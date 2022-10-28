@@ -4,6 +4,7 @@
 * Renamed `Progress` class to `DownloadProgress` to avoid collision with other classes or plugins
 * Added a explicit documentation related to return of download()
 * Added a method to request Storage Access permition on Android 9 or bellow
+* Fixed download on urls that have invalid filename chars
 
 ## 1.0.3
 

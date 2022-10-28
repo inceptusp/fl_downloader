@@ -113,7 +113,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                                     in: .userDomainMask,
                                     appropriateFor: nil,
                                     create: true)
-            let filename = fileName!.isEmpty ? downloadTask.currentRequest?.url?.lastPathComponent ?? "UnknownFileName" : fileName!
+                let filename = fileName!.isEmpty ? downloadTask.currentRequest?.url?.lastPathComponent.removingRegexMatches(pattern: "[#%&{}\\\\<>*?/$!'\":@+`|=]", replaceWith: "-") ?? "unknown" : fileName!
             let savedURL = documentsURL.appendingPathComponent(filename)
             do {
                 try FileManager.default.removeItem(at: savedURL)
@@ -176,5 +176,15 @@ extension SwiftFlDownloaderPlugin: UIDocumentInteractionControllerDelegate {
             let app = UIApplication.shared
             return app.windows.first!.rootViewController!;
         }
+    }
+}
+
+extension String {
+    func removingRegexMatches(pattern: String, replaceWith: String = "") -> String? {
+        do {
+            let regex = try NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+            let range = NSRange(location: 0, length: count)
+            return regex.stringByReplacingMatches(in: self, options: [], range: range, withTemplate: replaceWith)
+        } catch { return nil }
     }
 }

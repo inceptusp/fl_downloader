@@ -41,8 +41,9 @@ class FlDownloader {
   /// Requests storage permission on Android
   ///
   /// If you app supports Android 9 or lower, the call to request storage permission
-  /// is mandatory. Aways returns [StoragePermissionStatus.granted] on Android 10 or higher.
+  /// is mandatory. Aways returns [StoragePermissionStatus.granted] on Android 10 or higher and on iOS.
   static Future<StoragePermissionStatus> requestPermission() async {
+    if (Platform.isIOS) return StoragePermissionStatus.granted;
     try {
       final status = await _channel.invokeMethod<bool>(
         'checkStoragePermission',
@@ -77,8 +78,8 @@ class FlDownloader {
   /// Returns the id of the download task
   ///
   /// If a fileName is not provided, the file name will be extracted from the url and
-  /// if the name extracted from the url contains forbiden characters, this characters
-  /// will be replaced by a dash (-). The list of forbiden characters are:
+  /// if the name extracted from the url contains forbidden characters, this characters
+  /// will be replaced by a dash (-). The list of forbidden characters are:
   /// ```bash
   /// # % & { } \ < > * ? / $ ! ' " : @ + ` | =
   /// ```

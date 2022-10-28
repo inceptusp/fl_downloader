@@ -20,7 +20,7 @@ enum DownloadStatus {
   /// The download is being canceled.
   ///
   /// This status is only used on iOS.
-  canceling;
+  canceling,
 }
 
 class DownloadProgress {

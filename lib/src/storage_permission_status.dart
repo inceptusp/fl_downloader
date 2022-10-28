@@ -7,5 +7,5 @@ enum StoragePermissionStatus {
   denied,
 
   /// The user has explicitly granted access to storage.
-  granted;
+  granted,
 }
