@@ -75,6 +75,14 @@ class FlDownloader {
   /// on the system download manager on Android
   ///
   /// Returns the id of the download task
+  ///
+  /// If a fileName is not provided, the file name will be extracted from the url and
+  /// if the name extracted from the url contains forbiden characters, this characters
+  /// will be replaced by a dash (-). The list of forbiden characters are:
+  /// ```bash
+  /// # % & { } \ < > * ? / $ ! ' " : @ + ` | =
+  /// ```
+  /// (which covers all characters that are not allowed in most file systems)
   static Future<int> download(
     String url, {
     Map<String, String>? headers,

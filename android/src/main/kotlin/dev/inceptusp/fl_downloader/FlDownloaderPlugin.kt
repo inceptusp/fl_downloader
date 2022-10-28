@@ -144,7 +144,9 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
     request.setDestinationInExternalPublicDir(
         Environment.DIRECTORY_DOWNLOADS,
-        fileName ?: "/${uri.lastPathSegment}"
+        fileName ?: uri.lastPathSegment?.replace(
+          Regex("[#%&{}\\\\<>*?/\$!'\":@+`|=]"), "-"
+        ) ?: "unknown"
     )
     for (header in headers?.keys ?: emptyList()) {
       request.addRequestHeader(header, headers!![header])
