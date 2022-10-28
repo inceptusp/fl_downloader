@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+
+import 'storage_permission_status.dart';
 
 part 'progress_entity_src.dart';
 
@@ -11,6 +13,7 @@ class FlDownloader {
     'dev.inceptusp.fl_downloader',
   );
 
+  static StreamController<bool> _permissionStatusStream = StreamController();
   static final StreamController<DownloadProgress> _progressStream =
       StreamController.broadcast();
 
@@ -25,8 +28,47 @@ class FlDownloader {
           DownloadProgress._fromMap(<String, dynamic>{...map}),
         );
       }
+      if (call.method == 'onRequestPermissionResult') {
+        final result = call.arguments as bool;
+        _permissionStatusStream.add(result);
+        _permissionStatusStream.close();
+        _permissionStatusStream = StreamController();
+      }
       return Future.value(null);
     });
+  }
+
+  /// Requests storage permission on Android
+  ///
+  /// If you app supports Android 9 or lower, the call to request storage permission
+  /// is mandatory. Aways returns [StoragePermissionStatus.granted] on Android 10 or higher.
+  static Future<StoragePermissionStatus> requestPermission() async {
+    try {
+      final status = await _channel.invokeMethod<bool>(
+        'checkStoragePermission',
+      );
+      if (status == true) return StoragePermissionStatus.granted;
+    } catch (e) {
+      debugPrint(e.toString());
+      return StoragePermissionStatus.unknown;
+    }
+
+    try {
+      bool? permissionStatus;
+      await _channel.invokeMethod<bool>('requestStoragePermission');
+      await for (bool event in _permissionStatusStream.stream) {
+        permissionStatus = event;
+      }
+      if (permissionStatus == null) return StoragePermissionStatus.unknown;
+      if (permissionStatus) {
+        return StoragePermissionStatus.granted;
+      } else {
+        return StoragePermissionStatus.denied;
+      }
+    } catch (e) {
+      debugPrint(e.toString());
+      return StoragePermissionStatus.unknown;
+    }
   }
 
   /// Create and starts a downlaod task on a local URLSession on iOS or

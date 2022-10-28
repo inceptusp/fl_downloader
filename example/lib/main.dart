@@ -76,10 +76,15 @@ class _MyAppState extends State<MyApp> {
         floatingActionButton: FloatingActionButton(
           child: const Icon(Icons.file_download),
           onPressed: () async {
-            await FlDownloader.download(
-              urlController.text,
-              fileName: 'teste.pdf',
-            );
+            final permission = await FlDownloader.requestPermission();
+            if (permission == StoragePermissionStatus.granted) {
+              await FlDownloader.download(
+                urlController.text,
+                fileName: 'teste.pdf',
+              );
+            } else {
+              debugPrint('Permission denied =(');
+            }
           },
         ),
       ),

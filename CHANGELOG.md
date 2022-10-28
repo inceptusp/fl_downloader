@@ -3,6 +3,7 @@
 * Updated Dart to 2.18 and Flutter 3.3
 * Renamed `Progress` class to `DownloadProgress` to avoid collision with other classes or plugins
 * Added a explicit documentation related to return of download()
+* Added a method to request Storage Access permition on Android 9 or bellow
 
 ## 1.0.3
 
