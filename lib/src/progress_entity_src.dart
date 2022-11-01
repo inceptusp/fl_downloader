@@ -23,7 +23,7 @@ enum DownloadStatus {
   canceling,
 }
 
-class Progress {
+class DownloadProgress {
   /// Download task identifier
   final int downloadId;
 
@@ -37,15 +37,15 @@ class Progress {
   late final String? filePath;
 
   /// A class that represents the download progress and status
-  Progress({
+  DownloadProgress({
     required this.downloadId,
     required this.progress,
     required this.status,
     this.filePath,
   });
 
-  factory Progress._fromMap(Map<String, dynamic> map) {
-    return Progress(
+  factory DownloadProgress._fromMap(Map<String, dynamic> map) {
+    return DownloadProgress(
       downloadId: map['downloadId'],
       progress: map['progress'],
       status: DownloadStatus.values[map['status']],

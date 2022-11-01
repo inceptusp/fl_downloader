@@ -1,29 +1,43 @@
 package dev.inceptusp.fl_downloader
 
+import android.Manifest.permission.READ_EXTERNAL_STORAGE
+import android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+import android.app.Activity
 import android.app.DownloadManager
 import android.app.DownloadManager.Query
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
+import android.os.Build
+import android.os.Build.VERSION.SDK_INT
 import android.os.Environment
 import android.os.SystemClock
 import android.webkit.MimeTypeMap
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
-import io.flutter.plugin.common.MethodChannel.Result
-import java.io.File
+import io.flutter.plugin.common.PluginRegistry.RequestPermissionsResultListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
-class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
+
+class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, RequestPermissionsResultListener {
   private lateinit var channel: MethodChannel
+  private lateinit var activityBindings: ActivityPluginBinding
   private lateinit var context: Context
+  private lateinit var activity: Activity
+  private val permissionRequestCode = 353696
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     channel = MethodChannel(flutterPluginBinding.binaryMessenger, "dev.inceptusp.fl_downloader")
@@ -31,39 +45,108 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
     context = flutterPluginBinding.applicationContext
   }
 
-  override fun onMethodCall(call: MethodCall, result: Result) {
-    if (call.method == "download") {
-      val downloadId = download(call.argument("url"), call.argument("headers"), call.argument("fileName"))
-      CoroutineScope(Dispatchers.Default).launch {
-        trackProgress(downloadId)
-      }
-      result.success(downloadId)
-    } else if (call.method == "openFile") {
-      val downloadId: Int? = call.argument("downloadId")
-      val filePath: String? = call.argument("filePath")
-      openFile(downloadId?.toLong(), filePath)
-      result.success(null)
-    } else if (call.method == "cancel") {
-      val downloadIds: LongArray = call.argument("downloadIds")!!
-      val canceledDownloads = cancelDownload(*downloadIds)
-      result.success(canceledDownloads)
-    } else {
-      result.notImplemented()
+  override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+    activityBindings = binding
+    binding.addRequestPermissionsResultListener(this)
+    activity = binding.activity
+  }
+
+  override fun onDetachedFromActivityForConfigChanges() {}
+
+  override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+    onAttachedToActivity(binding)
+  }
+
+  override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    when (call.method) {
+        "checkStoragePermission" -> {
+          val permissionStatus = checkPermissionStatus()
+          result.success(permissionStatus)
+        }
+        "requestStoragePermission" -> {
+          requestPermission()
+          result.success(null)
+        }
+        "download" -> {
+          val downloadId = download(call.argument("url"), call.argument("headers"), call.argument("fileName"))
+          CoroutineScope(Dispatchers.Default).launch {
+            trackProgress(downloadId)
+          }
+          result.success(downloadId)
+        }
+        "openFile" -> {
+          val downloadId: Int? = call.argument("downloadId")
+          val filePath: String? = call.argument("filePath")
+          openFile(downloadId?.toLong(), filePath)
+          result.success(null)
+        }
+        "cancel" -> {
+          val downloadIds: LongArray = call.argument("downloadIds")!!
+          val canceledDownloads = cancelDownload(*downloadIds)
+          result.success(canceledDownloads)
+        }
+        else -> {
+          result.notImplemented()
+        }
     }
+  }
+
+  override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<out String>,
+    grantResults: IntArray
+  ): Boolean {
+    when (requestCode) {
+      permissionRequestCode -> if (grantResults.isNotEmpty()) {
+        val writePermissionStorage = grantResults[0] == PackageManager.PERMISSION_GRANTED
+        val readExternalStorage = grantResults[1] == PackageManager.PERMISSION_GRANTED
+        if (readExternalStorage && writePermissionStorage) {
+          channel.invokeMethod("onRequestPermissionResult", true)
+        } else {
+          channel.invokeMethod("onRequestPermissionResult", false)
+        }
+      }
+    }
+    return true
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     channel.setMethodCallHandler(null)
   }
 
-  fun download(url: String?, headers: Map<String, String>?, fileName: String?): Long {
+  override fun onDetachedFromActivity() {
+    activityBindings.removeRequestPermissionsResultListener(this)
+  }
+
+  private fun checkPermissionStatus(): Boolean {
+    val permissionStatus: Boolean = if (SDK_INT >= Build.VERSION_CODES.R) {
+      true
+    } else {
+      val resultRead = ContextCompat.checkSelfPermission(context, READ_EXTERNAL_STORAGE)
+      val resultWrite = ContextCompat.checkSelfPermission(context, WRITE_EXTERNAL_STORAGE)
+      resultRead == PackageManager.PERMISSION_GRANTED && resultWrite == PackageManager.PERMISSION_GRANTED
+    }
+    return permissionStatus
+  }
+
+  private fun requestPermission() {
+    ActivityCompat.requestPermissions(
+      activity,
+      arrayOf(WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE),
+      permissionRequestCode
+    )
+  }
+
+  private fun download(url: String?, headers: Map<String, String>?, fileName: String?): Long {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     val uri = Uri.parse(url)
     val request = DownloadManager.Request(uri)
     request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
     request.setDestinationInExternalPublicDir(
         Environment.DIRECTORY_DOWNLOADS,
-        fileName ?: "/${uri.lastPathSegment}"
+        fileName ?: uri.lastPathSegment?.replace(
+          Regex("[#%&{}\\\\<>*?/\$!'\":@+`|=]"), "-"
+        ) ?: "unknown"
     )
     for (header in headers?.keys ?: emptyList()) {
       request.addRequestHeader(header, headers!![header])
@@ -71,7 +154,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
     return manager.enqueue(request)
   }
 
-  fun openFile(downloadId: Long?, filePath: String?) {
+  private fun openFile(downloadId: Long?, filePath: String?) {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     var downloadedTo : String? = filePath
 
@@ -99,12 +182,12 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
     )
   }
 
-  fun cancelDownload(vararg downloadIds: Long): Int {
+  private fun cancelDownload(vararg downloadIds: Long): Int {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     return manager.remove(*downloadIds)
   }
 
-  suspend fun trackProgress(downloadId: Long?) {
+  private suspend fun trackProgress(downloadId: Long?) {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     var finishDownload = false
     var lastProgress = -1
@@ -114,7 +197,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler {
     }
     val timerCoroutine = CoroutineScope(Dispatchers.Default).launch {
       SystemClock.sleep(15000)
-      finishDownload = true;
+      finishDownload = true
       withContext(Dispatchers.Main) {
         channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 4))
       }
