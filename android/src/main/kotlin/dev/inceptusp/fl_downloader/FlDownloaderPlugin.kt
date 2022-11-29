@@ -119,7 +119,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
   }
 
   private fun checkPermissionStatus(): Boolean {
-    val permissionStatus: Boolean = if (SDK_INT >= Build.VERSION_CODES.R) {
+    val permissionStatus: Boolean = if (SDK_INT >= Build.VERSION_CODES.Q) {
       true
     } else {
       val resultRead = ContextCompat.checkSelfPermission(context, READ_EXTERNAL_STORAGE)
