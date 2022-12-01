@@ -35,9 +35,16 @@ class _MyAppState extends State<MyApp> {
           filePath: event.filePath,
         );
       } else if (event.status == DownloadStatus.running) {
+        debugPrint('event.progress: ${event.progress}');
         setState(() {
           progress = event.progress;
         });
+      } else if (event.status == DownloadStatus.failed) {
+        debugPrint('Download failed');
+      } else if (event.status == DownloadStatus.paused) {
+        debugPrint('Download paused');
+      } else if (event.status == DownloadStatus.pending) {
+        debugPrint('Download pending');
       }
     });
     super.initState();
