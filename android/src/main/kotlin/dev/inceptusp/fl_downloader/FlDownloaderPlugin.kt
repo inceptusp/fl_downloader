@@ -119,7 +119,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
   }
 
   private fun checkPermissionStatus(): Boolean {
-    val permissionStatus: Boolean = if (SDK_INT >= Build.VERSION_CODES.Q) {
+    val permissionStatus: Boolean = if (SDK_INT >= Build.VERSION_CODES.R) {
       true
     } else {
       val resultRead = ContextCompat.checkSelfPermission(context, READ_EXTERNAL_STORAGE)
@@ -175,10 +175,13 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     val uri = FileProvider.getUriForFile(context, authority, File(fileUri.path!!))
 
     context.startActivity(
+      Intent.createChooser(
         Intent(Intent.ACTION_VIEW)
             .setDataAndType(uri, type)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Open PDF"
+      )
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     )
   }
 
