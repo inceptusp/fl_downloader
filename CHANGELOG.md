@@ -1,3 +1,8 @@
+## 1.1.1
+
+* Fixed `fileNotFoundException` on `openFile()` in Android 10
+* Fixed download progress stops updating after 15 seconds
+
 ## 1.1.0
 
 * Updated Dart to 2.18 and Flutter 3.3
