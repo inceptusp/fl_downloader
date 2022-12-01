@@ -25,10 +25,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.PluginRegistry.RequestPermissionsResultListener
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.io.File
 
 
@@ -175,13 +172,10 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     val uri = FileProvider.getUriForFile(context, authority, File(fileUri.path!!))
 
     context.startActivity(
-      Intent.createChooser(
-        Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, type)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Open PDF"
-      )
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      Intent(Intent.ACTION_VIEW)
+          .setDataAndType(uri, type)
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     )
   }
 
@@ -200,11 +194,16 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     }
     val timerCoroutine = CoroutineScope(Dispatchers.Default).launch {
       SystemClock.sleep(15000)
-      finishDownload = true
-      withContext(Dispatchers.Main) {
-        channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 4))
+      if (isActive) {
+        finishDownload = true
+        withContext(Dispatchers.Main) {
+          channel.invokeMethod(
+            "notifyProgress",
+            mapOf("downloadId" to downloadId, "progress" to 0, "status" to 4)
+          )
+        }
+        manager.remove(downloadId!!)
       }
-      manager.remove(downloadId!!)
     }
     while (!finishDownload) {
       val cursor: Cursor = manager.query(Query().setFilterById(downloadId!!))

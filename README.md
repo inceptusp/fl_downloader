@@ -20,9 +20,9 @@ If you want to show downloaded files to the user on the Files app, add the follo
 
 ## Android Configuration
 
-There is no need for special configuration on Android 10+.
+There is no need for special configuration on Android 11+.
 
-If your app supports Android 9 (API 28) or bellow it is mandatory to call `requestPermission()` before `download()` and check the permission status.<br><br>
+If your app supports Android 10 (API 29) or bellow it is mandatory to call `requestPermission()` before `download()` and check the permission status.<br><br>
 
 **NOTE**: This plugins expects that `compileSdkVersion` is the latest Android SDK, eg.:
 ```groovy
