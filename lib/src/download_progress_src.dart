@@ -36,12 +36,16 @@ class DownloadProgress {
   /// Downloaded file path
   late final String? filePath;
 
+  /// Download status reason. This is only available when the download status is failed or paused.
+  late final StatusReason? statusReason;
+
   /// A class that represents the download progress and status
   DownloadProgress({
     required this.downloadId,
     required this.progress,
     required this.status,
     this.filePath,
+    this.statusReason,
   });
 
   factory DownloadProgress._fromMap(Map<String, dynamic> map) {
@@ -50,11 +54,48 @@ class DownloadProgress {
       progress: map['progress'],
       status: DownloadStatus.values[map['status']],
       filePath: map.containsKey('filePath') ? map['filePath'] : null,
+      statusReason: map.containsKey('reason')
+          ? StatusReason._fromMap({
+              'code': map['reason'] != null
+                  ? map['reason'].toString().split(RegExp(r'\(|\)'))[1]
+                  : -1,
+              'message': map['reason'],
+            })
+          : null,
     );
   }
 
   @override
   String toString() {
-    return 'Progress{downloadId: $downloadId, progress: $progress, status: $status, filePath: $filePath}';
+    return 'Progress{downloadId: $downloadId, progress: $progress, status: $status, filePath: $filePath, statusReason: $statusReason}';
+  }
+}
+
+class StatusReason {
+  /// Status reason code
+  final int code;
+
+  /// Status reason message
+  final String? message;
+
+  /// A class that carries extra messages for download status when it is failed or paused
+  StatusReason({
+    required this.code,
+    this.message,
+  });
+
+  factory StatusReason._fromMap(Map<String, dynamic> map) {
+    final statusCode = map['code'].toString();
+    return StatusReason(
+      code: int.parse(
+        statusCode.isEmpty ? '-1' : statusCode,
+      ),
+      message: map['message'],
+    );
+  }
+
+  @override
+  String toString() {
+    return 'StatusReason{code: $code, message: $message}';
   }
 }

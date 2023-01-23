@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'storage_permission_status.dart';
 
-part 'progress_entity_src.dart';
+part 'download_progress_src.dart';
 
 class FlDownloader {
   static const MethodChannel _channel = MethodChannel(
@@ -93,6 +93,13 @@ class FlDownloader {
       'url': url,
       'headers': headers,
       'fileName': fileName,
+    });
+  }
+
+  static Future<void> attachDownloadTracker(int downloadId) async {
+    return await _channel
+        .invokeMethod('attachDownloadTracker', <String, dynamic>{
+      'downloadId': downloadId,
     });
   }
 
