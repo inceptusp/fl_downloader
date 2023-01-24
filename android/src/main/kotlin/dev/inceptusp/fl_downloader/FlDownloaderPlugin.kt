@@ -220,6 +220,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
         when (status) {
           DownloadManager.STATUS_FAILED -> {
             finishDownload = true
+            if (timerCoroutine.isActive) timerCoroutine.cancel()
             val reason = cursor.getIntOrNull(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
             val convertedReason = convertReasonString(reason)
             Log.d("fl_downloader", "$convertedReason")
@@ -234,6 +235,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
           }
           DownloadManager.STATUS_PAUSED -> {
             finishDownload = true
+            if (timerCoroutine.isActive) timerCoroutine.cancel()
             val reason = cursor.getIntOrNull(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
             val convertedReason = convertReasonString(reason)
             Log.d("fl_downloader", "$convertedReason")
