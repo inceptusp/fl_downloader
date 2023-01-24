@@ -150,7 +150,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                 "downloadId": downloadTask.taskIdentifier,
                 "progress": 0,
                 "status": 4,
-                "reason": "IOS_ERROR(\((error as NSError).code): Error saving downloaded file (\(error as NSError))"
+                "reason": "IOS_ERROR(\((error as NSError).code)): Error saving downloaded file (\(error as NSError))"
             ])
         }
     }
@@ -169,6 +169,29 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
             "progress": Int.init(percentage),
             "status": Int.init(stateMapper[downloadTask.state]!),
         ])
+    }
+    
+    public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        if(error != nil) {
+            SwiftFlDownloaderPlugin.channel?.invokeMethod(SwiftFlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
+                "downloadId": task.taskIdentifier,
+                "progress": 0,
+                "status": 4,
+                "reason": "IOS_ERROR(\((error! as NSError).code)): Error on download task (\(error! as NSError))"
+            ])
+        } else {
+            let httpResponse = task.response as! HTTPURLResponse;
+            if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
+                //Handled by didFinishDownloadingTo delegate
+            } else {
+                SwiftFlDownloaderPlugin.channel?.invokeMethod(SwiftFlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
+                    "downloadId": task.taskIdentifier,
+                    "progress": 0,
+                    "status": 4,
+                    "reason": "HTTP_ERROR(\(httpResponse.statusCode))"
+                ])
+            }
+        }
     }
 }
 
