@@ -254,7 +254,6 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
                 )
               }
             } else {
-              finishDownload = true
               withContext(Dispatchers.Main) {
                 channel.invokeMethod("notifyProgress",
                         mapOf("downloadId" to downloadId,
