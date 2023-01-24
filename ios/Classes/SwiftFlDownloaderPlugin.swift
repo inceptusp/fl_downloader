@@ -12,8 +12,8 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
     
     private lazy var fpController = UIDocumentInteractionController()
     private lazy var urlSession = URLSession(configuration: .default,
-                                               delegate: self,
-                                               delegateQueue: nil)
+                                             delegate: self,
+                                             delegateQueue: OperationQueue.main)
     
     public static var channel : FlutterMethodChannel?
 
@@ -136,6 +136,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                     "downloadId": downloadTask.taskIdentifier,
                     "progress": 0,
                     "status": 4,
+                    "reason": "HTTP_ERROR(\(httpResponse.statusCode))"
                 ])
             }
         } catch {
@@ -145,6 +146,12 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
             } else {
                 NSLog("Error saving downloaded file: %@", error as NSError)
             }
+            SwiftFlDownloaderPlugin.channel?.invokeMethod(SwiftFlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
+                "downloadId": downloadTask.taskIdentifier,
+                "progress": 0,
+                "status": 4,
+                "reason": "IOS_ERROR(\((error as NSError).code): Error saving downloaded file (\(error as NSError))"
+            ])
         }
     }
     
