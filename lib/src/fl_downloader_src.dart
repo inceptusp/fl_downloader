@@ -142,9 +142,16 @@ class FlDownloader {
 
   /// Cancels a list of ongoing downloads and return the number of canceled tasks
   static Future<int> cancel(List<int> downloadIds) async {
-    final convertedIds = Int64List.fromList(downloadIds);
-    return await _channel.invokeMethod('cancel', {
-      'downloadIds': convertedIds,
-    });
+    if (Platform.isAndroid) {
+      final convertedIds = Int64List.fromList(downloadIds);
+      return await _channel.invokeMethod('cancel', {
+        'downloadIds': convertedIds,
+      });
+    } else if (Platform.isIOS) {
+      return await _channel.invokeMethod('cancel', {
+        'downloadIds': downloadIds,
+      });
+    }
+    throw UnimplementedError();
   }
 }
