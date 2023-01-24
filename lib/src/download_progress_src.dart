@@ -2,7 +2,7 @@ part of 'fl_downloader_src.dart';
 
 /// Possible status for download tasks
 enum DownloadStatus {
-  /// The download has concluded successfully.
+  /// The download has concluded successfully. (considered as finished)
   successful,
 
   /// The task is running.
@@ -11,10 +11,10 @@ enum DownloadStatus {
   /// The task has not started yet.
   pending,
 
-  /// The download is paused.
+  /// The download is paused. (considered as finished)
   paused,
 
-  /// The download has failed.
+  /// The download has failed. (considered as finished)
   failed,
 
   /// The download is being canceled.
@@ -59,6 +59,9 @@ class DownloadProgress {
               'code': map['reason'] != null
                   ? map['reason'].toString().split(RegExp(r'\(|\)'))[1]
                   : -1,
+              'type': map['reason'] != null
+                  ? map['reason'].toString().split('(')[0]
+                  : null,
               'message': map['reason'],
             })
           : null,
@@ -75,12 +78,22 @@ class StatusReason {
   /// Status reason code
   final int code;
 
+  /// Reason type
+  ///
+  /// Can be one of the following:
+  /// ANDROID_ERROR (in case of an error on Android)
+  /// IOS_ERROR (in case of an error on iOS)
+  /// HTTP_ERROR (in case of an HTTP error)
+  /// ANDROID (in case of a pause reason on Android)
+  final String? type;
+
   /// Status reason message
   final String? message;
 
   /// A class that carries extra messages for download status when it is failed or paused
   StatusReason({
     required this.code,
+    this.type,
     this.message,
   });
 
