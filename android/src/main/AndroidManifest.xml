@@ -8,7 +8,8 @@
       android:name="androidx.core.content.FileProvider"
       android:authorities="${applicationId}.flDownloader.provider"
       android:exported="false"
-      android:grantUriPermissions="true">
+      android:grantUriPermissions="true"
+      android:process=":${applicationId}.flDownloader.provider">
         <meta-data
           android:name="android.support.FILE_PROVIDER_PATHS"
           android:resource="@xml/provider_paths" />

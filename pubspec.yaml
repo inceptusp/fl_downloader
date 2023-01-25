@@ -1,7 +1,7 @@
 name: fl_downloader
 description: A plugin to download files using the native capabilities.
   URLSession on iOS and DownloadManager on Android
-version: 1.1.1
+version: 1.2.0
 #homepage:
 repository: https://github.com/inceptusp/fl_downloader
 

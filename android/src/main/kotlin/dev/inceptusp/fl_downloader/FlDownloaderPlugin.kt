@@ -14,10 +14,12 @@ import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.os.Environment
 import android.os.SystemClock
+import android.util.Log
 import android.webkit.MimeTypeMap
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.database.getIntOrNull
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -70,6 +72,12 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
             trackProgress(downloadId)
           }
           result.success(downloadId)
+        }
+        "attachDownloadTracker" -> {
+          val downloadId : Long = call.argument("downloadId")!!
+          CoroutineScope(Dispatchers.Default).launch {
+            trackProgress(downloadId)
+          }
         }
         "openFile" -> {
           val downloadId: Int? = call.argument("downloadId")
@@ -212,31 +220,49 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
         when (status) {
           DownloadManager.STATUS_FAILED -> {
             finishDownload = true
+            if (timerCoroutine.isActive) timerCoroutine.cancel()
+            val reason = cursor.getIntOrNull(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
+            val convertedReason = convertReasonString(reason)
+            Log.d("fl_downloader", "$convertedReason")
             withContext(Dispatchers.Main) {
-              channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 4))
+              channel.invokeMethod("notifyProgress",
+                      mapOf("downloadId" to downloadId,
+                              "progress" to 0,
+                              "status" to 4,
+                              "reason" to convertedReason)
+              )
             }
           }
           DownloadManager.STATUS_PAUSED -> {
+            finishDownload = true
+            if (timerCoroutine.isActive) timerCoroutine.cancel()
+            val reason = cursor.getIntOrNull(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
+            val convertedReason = convertReasonString(reason)
+            Log.d("fl_downloader", "$convertedReason")
             val total =
-                cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
             if (total >= 0) {
               val downloaded =
-                  cursor.getLong(
-                      cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                  )
+                      cursor.getLong(
+                              cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                      )
               progress = (downloaded * 100L / total).toInt()
-              if(progress != lastProgress) {
-                lastProgress = progress
-                withContext(Dispatchers.Main) {
-                  channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 3))
-                }
+              withContext(Dispatchers.Main) {
+                channel.invokeMethod("notifyProgress",
+                        mapOf("downloadId" to downloadId,
+                                "progress" to progress,
+                                "status" to 3,
+                                "reason" to convertedReason)
+                )
               }
             } else {
-              if(progress != lastProgress) {
-                lastProgress = 0
-                withContext(Dispatchers.Main) {
-                  channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 3))
-                }
+              withContext(Dispatchers.Main) {
+                channel.invokeMethod("notifyProgress",
+                        mapOf("downloadId" to downloadId,
+                                "progress" to progress,
+                                "status" to 3,
+                                "reason" to convertedReason)
+                )
               }
             }
           }
@@ -244,20 +270,21 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
             withContext(Dispatchers.Main) {
               channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 2))
             }
+            SystemClock.sleep(250)
           }
           DownloadManager.STATUS_RUNNING -> {
             val total =
-                cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
             if (total >= 0) {
-              if(timerCoroutine.isActive) timerCoroutine.cancel()
+              if (timerCoroutine.isActive) timerCoroutine.cancel()
               val downloaded =
-                  cursor.getLong(
-                      cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                  )
-              if(total != 0L) {
+                      cursor.getLong(
+                              cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                      )
+              if (total != 0L) {
                 progress = (downloaded * 100L / total).toInt()
               }
-              if(progress != lastProgress) {
+              if (progress != lastProgress) {
                 lastProgress = progress
                 withContext(Dispatchers.Main) {
                   channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 1))
@@ -269,7 +296,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
             val filePath = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
             progress = 100
             finishDownload = true
-            if(timerCoroutine.isActive) timerCoroutine.cancel()
+            if (timerCoroutine.isActive) timerCoroutine.cancel()
             withContext(Dispatchers.Main) {
               channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 0, "filePath" to filePath))
             }
@@ -277,6 +304,27 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
         }
       }
       cursor.close()
+    }
+    return
+  }
+
+  private fun convertReasonString(reason: Int?) :String? {
+    return when (reason) {
+      DownloadManager.ERROR_CANNOT_RESUME -> "ANDROID_ERROR(0x000003f0): Some, possibly, transient error occurred but we can't resume the download."
+      DownloadManager.ERROR_DEVICE_NOT_FOUND -> "ANDROID_ERROR(0x000003ef): No external storage device was found."
+      DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "ANDROID_ERROR(0x000003f1): The requested destination file already exists."
+      DownloadManager.ERROR_FILE_ERROR -> "ANDROID_ERROR(0x000003e9): A storage issue arises which doesn't fit under any other error code."
+      DownloadManager.ERROR_HTTP_DATA_ERROR -> "ANDROID_ERROR(0x000003ec): An error receiving or processing data occurred at the HTTP level"
+      DownloadManager.ERROR_INSUFFICIENT_SPACE -> "ANDROID_ERROR(0x000003ee): There was insufficient storage space."
+      DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "ANDROID_ERROR(0x000003ed): There were too many redirects."
+      DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "ANDROID_ERROR(0x000003ea): An HTTP code was received that download manager can't handle."
+      DownloadManager.ERROR_UNKNOWN -> "ANDROID_ERROR(0x000003e8): When the download has completed with an error that doesn't fit under any other error code."
+      DownloadManager.PAUSED_QUEUED_FOR_WIFI -> "ANDROID(0x00000003): The download exceeds a size limit for downloads over the mobile network and the download manager is waiting for a Wi-Fi connection to proceed."
+      DownloadManager.PAUSED_UNKNOWN -> "ANDROID(0x00000004): The download is paused for some other reason."
+      DownloadManager.PAUSED_WAITING_FOR_NETWORK -> "ANDROID(0x00000002): The download is waiting for network connectivity to proceed."
+      DownloadManager.PAUSED_WAITING_TO_RETRY -> "ANDROID(0x00000001): The download is paused because some network error occurred and the download manager is waiting before retrying the request."
+      null -> null
+      else -> "HTTP_ERROR($reason)"
     }
   }
 }

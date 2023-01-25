@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'storage_permission_status.dart';
 
-part 'progress_entity_src.dart';
+part 'download_progress_src.dart';
 
 class FlDownloader {
   static const MethodChannel _channel = MethodChannel(
@@ -20,13 +20,16 @@ class FlDownloader {
   static Stream<DownloadProgress> get progressStream => _progressStream.stream;
 
   /// Initializes the plugin and open the stream to listen to download progress
-  static Future initialize() async {
+  static Future<void> initialize() async {
     _channel.setMethodCallHandler((call) {
       if (call.method == 'notifyProgress') {
         final map = call.arguments as Map;
         _progressStream.add(
           DownloadProgress._fromMap(<String, dynamic>{...map}),
         );
+        if (Platform.isIOS && map.containsKey('reason')) {
+          debugPrint('fl_downloader: ${map['reason']}');
+        }
       }
       if (call.method == 'onRequestPermissionResult') {
         final result = call.arguments as bool;
@@ -96,11 +99,33 @@ class FlDownloader {
     });
   }
 
+  /// Attach the download progress stream to an untracked download task.
+  ///
+  /// This method is only available on Android and should be called if you want to
+  /// track the progress of a download task that has received a status different from [DownloadStatus.running] or [DownloadStatus.pending]
+  /// to poll for a new status. If called when the download task is in a status that is **not** considered as a "finished" download,
+  /// this may cause unexpected behavior such as multiple progress updates for the same download task.
+  ///
+  /// Android's download manager will not send any progress updates for a download task
+  /// automatically and you have to poll for a new status to get the progress. This package
+  /// do the polling for you, but you have to attach the download task to the stream if
+  /// you want to get the progress updates after any status update that is considered as a "finished" download
+  /// such as [DownloadStatus.paused] or [DownloadStatus.failed].
+  ///
+  /// If called on iOS, this method will do nothing.
+  static Future<void> attachDownloadProgress(int downloadId) async {
+    if (Platform.isIOS) return;
+    return await _channel
+        .invokeMethod('attachDownloadTracker', <String, dynamic>{
+      'downloadId': downloadId,
+    });
+  }
+
   /// Open the downlaoded file on the default file loader on each platform
   ///
   /// You can open a downloaded file using the [downloadId] or the [filepath]
   /// on Android. On iOS you can open using only the [filePath]
-  static Future openFile({int? downloadId, String? filePath}) async {
+  static Future<void> openFile({int? downloadId, String? filePath}) async {
     assert(
       (downloadId != null) ^ (filePath != null),
       'You can open a file by downloadId or by filePath, not both',
@@ -117,9 +142,16 @@ class FlDownloader {
 
   /// Cancels a list of ongoing downloads and return the number of canceled tasks
   static Future<int> cancel(List<int> downloadIds) async {
-    final convertedIds = Int64List.fromList(downloadIds);
-    return await _channel.invokeMethod('cancel', {
-      'downloadIds': convertedIds,
-    });
+    if (Platform.isAndroid) {
+      final convertedIds = Int64List.fromList(downloadIds);
+      return await _channel.invokeMethod('cancel', {
+        'downloadIds': convertedIds,
+      });
+    } else if (Platform.isIOS) {
+      return await _channel.invokeMethod('cancel', {
+        'downloadIds': downloadIds,
+      });
+    }
+    throw UnimplementedError();
   }
 }

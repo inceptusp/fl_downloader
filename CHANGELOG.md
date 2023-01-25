@@ -1,3 +1,9 @@
+## 1.2.0
+
+* Added error messaging returning on `DownloadStatus.failed` and reason on `DownloadStatus.paused`
+* Added log messages on native side
+* Added a function to reattach the download progress stream to a download on Android
+
 ## 1.1.1
 
 * Fixed `fileNotFoundException` on `openFile()` in Android 10
