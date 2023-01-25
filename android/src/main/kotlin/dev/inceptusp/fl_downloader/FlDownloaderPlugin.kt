@@ -270,6 +270,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
             withContext(Dispatchers.Main) {
               channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 2))
             }
+            SystemClock.sleep(250)
           }
           DownloadManager.STATUS_RUNNING -> {
             val total =

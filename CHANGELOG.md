@@ -2,7 +2,7 @@
 
 * Added error messaging returning on `DownloadStatus.failed` and reason on `DownloadStatus.paused`
 * Added log messages on native side
-* Added an function to reattach the download progress stream to a download
+* Added a function to reattach the download progress stream to a download on Android
 
 ## 1.1.1
 

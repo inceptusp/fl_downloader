@@ -180,17 +180,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                 "reason": "IOS_ERROR(\((error! as NSError).code)): Error on download task (\(error! as NSError))"
             ])
         } else {
-            let httpResponse = task.response as! HTTPURLResponse;
-            if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
-                //Handled by didFinishDownloadingTo delegate
-            } else {
-                SwiftFlDownloaderPlugin.channel?.invokeMethod(SwiftFlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
-                    "downloadId": task.taskIdentifier,
-                    "progress": 0,
-                    "status": 4,
-                    "reason": "HTTP_ERROR(\(httpResponse.statusCode))"
-                ])
-            }
+            // Handled by didFinishDownloadingTo delegate
         }
     }
 }

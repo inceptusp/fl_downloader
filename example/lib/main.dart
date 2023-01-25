@@ -44,7 +44,10 @@ class _MyAppState extends State<MyApp> {
         debugPrint('Download failed');
       } else if (event.status == DownloadStatus.paused) {
         debugPrint('Download paused');
-        FlDownloader.attachDownloadProgress(event.downloadId);
+        Future.delayed(
+          const Duration(milliseconds: 250),
+          () => FlDownloader.attachDownloadProgress(event.downloadId),
+        );
       } else if (event.status == DownloadStatus.pending) {
         debugPrint('Download pending');
       }

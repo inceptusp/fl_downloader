@@ -28,7 +28,7 @@ class FlDownloader {
           DownloadProgress._fromMap(<String, dynamic>{...map}),
         );
         if (Platform.isIOS && map.containsKey('reason')) {
-          debugPrint(map['reason']);
+          debugPrint('fl_downloader: ${map['reason']}');
         }
       }
       if (call.method == 'onRequestPermissionResult') {
