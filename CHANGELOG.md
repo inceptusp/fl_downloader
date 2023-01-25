@@ -1,3 +1,7 @@
+## 2.0.0
+
+* Added Windows platform support using `BITS` ([Background Intelligent Transfer Service](https://learn.microsoft.com/en-us/windows/win32/bits))
+
 ## 1.2.0
 
 * Added error messaging returning on `DownloadStatus.failed` and reason on `DownloadStatus.paused`
