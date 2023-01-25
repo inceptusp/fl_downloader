@@ -17,6 +17,10 @@ class FlDownloader {
   static final StreamController<DownloadProgress> _progressStream =
       StreamController.broadcast();
 
+  /// Stream that emits download progress and status updates
+  ///
+  /// The stream is opened when the plugin is initialized and is a broadcast stream
+  /// so it can have multiple listeners at the same time.
   static Stream<DownloadProgress> get progressStream => _progressStream.stream;
 
   /// Initializes the plugin and open the stream to listen to download progress

@@ -80,11 +80,11 @@ class StatusReason {
 
   /// Reason type
   ///
-  /// Can be one of the following:
-  /// ANDROID_ERROR (in case of an error on Android)
-  /// IOS_ERROR (in case of an error on iOS)
-  /// HTTP_ERROR (in case of an HTTP error)
-  /// ANDROID (in case of a pause reason on Android)
+  /// Can be one of the following: <br> <br>
+  /// * `ANDROID_ERROR` (in case of an error on Android) <br>
+  /// * `IOS_ERROR` (in case of an error on iOS) <br>
+  /// * `HTTP_ERROR` (in case of an HTTP error) <br>
+  /// * `ANDROID` (in case of a pause reason on Android)
   final String? type;
 
   /// Status reason message
