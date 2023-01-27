@@ -127,7 +127,7 @@ class FlDownloader {
   /// on Android. On iOS you can open using only the [filePath]
   static Future<void> openFile({int? downloadId, String? filePath}) async {
     assert(
-      (downloadId != null) ^ (filePath != null),
+      (downloadId != null) == (filePath != null),
       'You can open a file by downloadId or by filePath, not both',
     );
     assert(
