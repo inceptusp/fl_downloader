@@ -48,9 +48,11 @@ class FlDownloader {
   /// Requests storage permission on Android
   ///
   /// If you app supports Android 9 or lower, the call to request storage permission
-  /// is mandatory. Aways returns [StoragePermissionStatus.granted] on Android 10 or higher and on iOS.
+  /// is mandatory. Aways returns [StoragePermissionStatus.granted] on Android 10 or higher, on iOS and Windows.
   static Future<StoragePermissionStatus> requestPermission() async {
-    if (Platform.isIOS) return StoragePermissionStatus.granted;
+    if (Platform.isIOS || Platform.isWindows) {
+      return StoragePermissionStatus.granted;
+    }
     try {
       final status = await _channel.invokeMethod<bool>(
         'checkStoragePermission',

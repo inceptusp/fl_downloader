@@ -1,6 +1,6 @@
 ## 2.0.0
 
-* Added Windows platform support using `BITS` ([Background Intelligent Transfer Service](https://learn.microsoft.com/en-us/windows/win32/bits))
+* Added Windows platform support using winrt's `BackgroundTransfer` ([Windows.Networking.BackgroundTransfer](https://learn.microsoft.com/en-us/windows/uwp/networking/background-transfers))
 
 ## 1.2.0
 

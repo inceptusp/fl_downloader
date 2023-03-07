@@ -25,6 +25,8 @@ class FlDownloaderPlugin : public flutter::Plugin {
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+
+  void download();
 };
 
 }  // namespace fl_downloader

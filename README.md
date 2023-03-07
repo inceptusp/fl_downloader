@@ -32,3 +32,9 @@ android {
     [...]
 }
 ```
+
+## Windows Configuration
+
+There is no need for special configuration on Windows.
+
+**NOTE**: Due to using a WinRT api that is only available on Windows 10 or higher, this plugin works only with said Windows versions.

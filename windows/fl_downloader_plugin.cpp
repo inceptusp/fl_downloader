@@ -1,10 +1,8 @@
 #include "fl_downloader_plugin.h"
 
-// This must be included before many other Windows headers.
 #include <windows.h>
-
-// For getPlatformVersion; remove unless needed for your plugin implementation.
-#include <VersionHelpers.h>
+#include <winrt/windows.foundation.h>
+#include <winrt/windows.networking.backgroundtransfer.h>
 
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
@@ -20,7 +18,7 @@ void FlDownloaderPlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows *registrar) {
   auto channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-          registrar->messenger(), "fl_downloader",
+          registrar->messenger(), "dev.inceptusp.fl_downloader",
           &flutter::StandardMethodCodec::GetInstance());
 
   auto plugin = std::make_unique<FlDownloaderPlugin>();
@@ -40,20 +38,16 @@ FlDownloaderPlugin::~FlDownloaderPlugin() {}
 void FlDownloaderPlugin::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
-  if (method_call.method_name().compare("getPlatformVersion") == 0) {
-    std::ostringstream version_stream;
-    version_stream << "Windows ";
-    if (IsWindows10OrGreater()) {
-      version_stream << "10+";
-    } else if (IsWindows8OrGreater()) {
-      version_stream << "8";
-    } else if (IsWindows7OrGreater()) {
-      version_stream << "7";
-    }
-    result->Success(flutter::EncodableValue(version_stream.str()));
+  if (method_call.method_name().compare("download") == 0) {
+      download();
+    result->Success(flutter::EncodableValue(1));
   } else {
     result->NotImplemented();
   }
+}
+
+void FlDownloaderPlugin::download() {
+    std::cout << "teste" << std::endl;
 }
 
 }  // namespace fl_downloader
