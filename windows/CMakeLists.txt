@@ -16,6 +16,8 @@ set(PLUGIN_NAME "fl_downloader_plugin")
 list(APPEND PLUGIN_SOURCES
   "fl_downloader_plugin.cpp"
   "fl_downloader_plugin.h"
+  "helpers.cpp"
+  "helpers.h"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
@@ -35,7 +37,9 @@ apply_standard_settings(${PLUGIN_NAME})
 # between plugins. This should not be removed; any symbols that should be
 # exported should be explicitly exported with the FLUTTER_PLUGIN_EXPORT macro.
 set_target_properties(${PLUGIN_NAME} PROPERTIES
-  CXX_VISIBILITY_PRESET hidden)
+  CXX_VISIBILITY_PRESET hidden
+  CXX_STANDARD 20
+  CXX_STANDARD_REQUIRED ON)
 target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 
 # Source include directories and library dependencies. Add any plugin-specific

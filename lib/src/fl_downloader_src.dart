@@ -4,9 +4,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import 'storage_permission_status.dart';
+import 'storage_permission_status_src.dart';
 
 part 'download_progress_src.dart';
+part 'windows_impl_src.dart';
 
 class FlDownloader {
   static const MethodChannel _channel = MethodChannel(
@@ -82,9 +83,9 @@ class FlDownloader {
   }
 
   /// Create and starts a downlaod task on a local URLSession on iOS or
-  /// on the system download manager on Android
+  /// on the system download manager on Android or on BITS on Windows
   ///
-  /// Returns the id of the download task
+  /// Returns the id of the download task (An integer on Android and iOS and a GUID String on Windows)
   ///
   /// If a fileName is not provided, the file name will be extracted from the url and
   /// if the name extracted from the url contains forbidden characters, this characters
@@ -93,16 +94,25 @@ class FlDownloader {
   /// # % & { } \ < > * ? / $ ! ' " : @ + ` | =
   /// ```
   /// (which covers all characters that are not allowed in most file systems)
-  static Future<int> download(
+  static Future<dynamic> download(
     String url, {
     Map<String, String>? headers,
     String? fileName,
   }) async {
-    return await _channel.invokeMethod('download', <String, dynamic>{
-      'url': url,
-      'headers': headers,
-      'fileName': fileName,
-    });
+    if (Platform.isWindows) {
+      final info = _WindowsImpl.prepareDownloadData(url, fileName: fileName);
+      return await _channel.invokeMethod('download', <String, dynamic>{
+        'url': info.url,
+        'headers': headers,
+        'fileName': info.fileName,
+      });
+    } else {
+      return await _channel.invokeMethod('download', <String, dynamic>{
+        'url': url,
+        'headers': headers,
+        'fileName': fileName,
+      });
+    }
   }
 
   /// Attach the download progress stream to an untracked download task.
@@ -130,15 +140,20 @@ class FlDownloader {
   /// Open the downlaoded file on the default file loader on each platform
   ///
   /// You can open a downloaded file using the [downloadId] or the [filepath]
-  /// on Android. On iOS you can open using only the [filePath]
-  static Future<void> openFile({int? downloadId, String? filePath}) async {
+  /// on Android. On iOS and Windows you can open using only the [filePath]
+  static Future<void> openFile({dynamic downloadId, String? filePath}) async {
     assert(
       (downloadId != null) ^ (filePath != null),
-      'You can open a file by downloadId or by filePath, not both',
+      'You can open a file by downloadId or by filePath, not both\n'
+      "And both values can't be null",
     );
     assert(
       !Platform.isIOS || (Platform.isIOS && filePath != null),
       'On iOS you can only open a file by filePath',
+    );
+    assert(
+      !Platform.isWindows || (Platform.isWindows && filePath != null),
+      'On Windows you can only open a file by filePath',
     );
     return await _channel.invokeMethod('openFile', {
       'downloadId': downloadId,
@@ -147,17 +162,19 @@ class FlDownloader {
   }
 
   /// Cancels a list of ongoing downloads and return the number of canceled tasks
-  static Future<int> cancel(List<int> downloadIds) async {
+  static Future<int> cancel(List<dynamic> downloadIds) async {
     if (Platform.isAndroid) {
-      final convertedIds = Int64List.fromList(downloadIds);
+      final convertedIds = Int64List.fromList(downloadIds as List<int>);
       return await _channel.invokeMethod('cancel', {
         'downloadIds': convertedIds,
       });
-    } else if (Platform.isIOS) {
+    } else if (Platform.isIOS || Platform.isWindows) {
       return await _channel.invokeMethod('cancel', {
         'downloadIds': downloadIds,
       });
     }
-    throw UnimplementedError();
+    throw UnimplementedError(
+      'Platform ${Platform.operatingSystem} is not supported',
+    );
   }
 }

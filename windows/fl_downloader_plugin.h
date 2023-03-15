@@ -8,26 +8,25 @@
 
 namespace fl_downloader {
 
-class FlDownloaderPlugin : public flutter::Plugin {
- public:
-  static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
+	class FlDownloaderPlugin : public flutter::Plugin {
+	public:
+		static void RegisterWithRegistrar(flutter::PluginRegistrarWindows* registrar);
 
-  FlDownloaderPlugin();
+		FlDownloaderPlugin();
+		virtual ~FlDownloaderPlugin();
 
-  virtual ~FlDownloaderPlugin();
+		FlDownloaderPlugin(const FlDownloaderPlugin&) = delete;
+		FlDownloaderPlugin& operator=(const FlDownloaderPlugin&) = delete;
 
-  // Disallow copy and assign.
-  FlDownloaderPlugin(const FlDownloaderPlugin&) = delete;
-  FlDownloaderPlugin& operator=(const FlDownloaderPlugin&) = delete;
+	private:
+		void HandleMethodCall(
+			const flutter::MethodCall<flutter::EncodableValue>& method_call,
+			std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 
- private:
-  // Called when a method is called on this plugin's channel from Dart.
-  void HandleMethodCall(
-      const flutter::MethodCall<flutter::EncodableValue> &method_call,
-      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
+		std::wstring Download(LPCWSTR url, LPCWSTR headers, LPCWSTR file_name);
 
-  void download();
-};
+		void TrackProgress(GUID jobId);
+	};
 
 }  // namespace fl_downloader
 
