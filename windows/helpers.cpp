@@ -25,8 +25,7 @@ namespace helpers {
 		return utf16_string;
 	}
 
-	std::string Converters::Utf8FromUtf16(const std::wstring& utf16_string)
-	{
+	std::string Converters::Utf8FromUtf16(const std::wstring& utf16_string) {
 		if (utf16_string.empty()) {
 			return std::string();
 		}
@@ -46,5 +45,16 @@ namespace helpers {
 			return std::string();
 		}
 		return utf8_string;
+	}
+
+	std::vector<std::wstring> Converters::Utf8ListFromUtf16List(const std::vector<std::string>& utf8_list) {
+		if (utf8_list.empty()) {
+			return std::vector<std::wstring>();
+		}
+		std::vector<std::wstring> utf16_list;
+		for (const auto& value : utf8_list) {
+			utf16_list.push_back(Utf16FromUtf8(value));
+		}
+		return utf16_list;
 	}
 }

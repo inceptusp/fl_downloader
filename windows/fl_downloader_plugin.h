@@ -26,6 +26,10 @@ namespace fl_downloader {
 		std::wstring Download(LPCWSTR url, LPCWSTR headers, LPCWSTR file_name);
 
 		void TrackProgress(GUID jobId);
+
+		void OpenFile(LPCWSTR file_path);
+
+		int Cancel(std::vector<std::wstring> download_ids);
 	};
 
 }  // namespace fl_downloader
