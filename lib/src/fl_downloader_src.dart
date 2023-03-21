@@ -117,7 +117,7 @@ class FlDownloader {
 
   /// Attach the download progress stream to an untracked download task.
   ///
-  /// This method is only available on Android and should be called if you want to
+  /// This method is only available on Android and Windows and should be called if you want to
   /// track the progress of a download task that has received a status different from [DownloadStatus.running] or [DownloadStatus.pending]
   /// to poll for a new status. If called when the download task is in a status that is **not** considered as a "finished" download,
   /// this may cause unexpected behavior such as multiple progress updates for the same download task.
@@ -126,7 +126,7 @@ class FlDownloader {
   /// automatically and you have to poll for a new status to get the progress. This package
   /// do the polling for you, but you have to attach the download task to the stream if
   /// you want to get the progress updates after any status update that is considered as a "finished" download
-  /// such as [DownloadStatus.paused] or [DownloadStatus.failed].
+  /// such as [DownloadStatus.paused] or [DownloadStatus.failed]. Same rule applies to Windows's BITS.
   ///
   /// If called on iOS, this method will do nothing.
   static Future<void> attachDownloadProgress(int downloadId) async {

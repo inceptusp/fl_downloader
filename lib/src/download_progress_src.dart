@@ -24,8 +24,10 @@ enum DownloadStatus {
 }
 
 class DownloadProgress {
-  /// Download task identifier
-  final int downloadId;
+  /// Download task identifier.
+  ///
+  /// interger on Android and iOS, string on Windows
+  final dynamic downloadId;
 
   /// File download progress in percentage from 0 to 100
   final int progress;
