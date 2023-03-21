@@ -3,6 +3,7 @@
 
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
+#include <ppltasks.h>
 
 #include <memory>
 
@@ -25,7 +26,7 @@ namespace fl_downloader {
 
 		std::wstring Download(LPCWSTR url, LPCWSTR headers, LPCWSTR file_name);
 
-		void TrackProgress(GUID jobId);
+		concurrency::task<void> TrackProgress(LPCWSTR jobId, LPSTREAM p_stream);
 
 		void OpenFile(LPCWSTR file_path);
 

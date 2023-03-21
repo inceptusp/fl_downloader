@@ -8,6 +8,7 @@
 #include <shlobj.h>
 #include <windows.h>
 #include <bits.h>
+#include <bits5_0.h>
 #include <flutter/method_channel.h>
 #include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
@@ -97,14 +98,40 @@ namespace fl_downloader {
 			auto utf16_headers_string = helpers::Converters::Utf16FromUtf8(concat_headers.str());
 
 			auto job_id = Download(utf16_url.data(), utf16_headers_string.data(), utf16_file_name.data());
-			//future<void> ret = async(launch::async, &FlDownloaderPlugin::TrackProgress, this, job_id);
-			//TrackProgress(job_id);
+
+			IStream* p_stream = NULL;
+			HRESULT hr = CoMarshalInterThreadInterfaceInStream(__uuidof(IBackgroundCopyManager),
+				g_pbcm, &p_stream);
+			if (SUCCEEDED(hr))
+			{
+				TrackProgress(job_id.c_str(), p_stream);
+			}
 
 			auto utf8_job_id = helpers::Converters::Utf8FromUtf16(job_id);
 			result->Success(flutter::EncodableValue(utf8_job_id));
 		}
 		else if (method_call.method_name().compare("attachDownloadTracker") == 0) {
+			const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
+			std::string job_id;
 
+			if (args) {
+				auto job_id_it = args->find(flutter::EncodableValue("url"));
+				if (job_id_it != args->end()) {
+					job_id = std::get<std::string>(job_id_it->second);
+				}
+			}
+
+			auto utf16_job_id = helpers::Converters::Utf16FromUtf8(job_id);
+
+			IStream* p_stream = NULL;
+			HRESULT hr = CoMarshalInterThreadInterfaceInStream(__uuidof(IBackgroundCopyManager),
+				g_pbcm, &p_stream);
+			if (SUCCEEDED(hr))
+			{
+				TrackProgress(utf16_job_id.c_str(), p_stream);
+			}
+
+			result->Success();
 		}
 		else if (method_call.method_name().compare("openFile") == 0) {
 			const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
@@ -195,117 +222,145 @@ namespace fl_downloader {
 		return rt;
 	}
 
-	void FlDownloaderPlugin::TrackProgress(GUID job_id) {
-		HRESULT hr;
-		IBackgroundCopyJob* p_job = NULL;
-		LPWSTR guid_string;
-		
-		StringFromCLSID(job_id, &guid_string);
-		auto utf8_guid_string = helpers::Converters::Utf8FromUtf16(guid_string);
-		if (guid_string) CoTaskMemFree(guid_string);
+	concurrency::task<void> FlDownloaderPlugin::TrackProgress(LPCWSTR job_id, LPSTREAM p_stream) {
+		return create_task([this, job_id, p_stream] {
+			HRESULT hr;
+			IBackgroundCopyManager* l_pbcm = NULL;
+			IBackgroundCopyJob* p_job = NULL;
+			GUID guid;
 
-		hr = g_pbcm->GetJob(job_id, &p_job);
+			CLSIDFromString(job_id, &guid);
+			auto utf8_guid_string = helpers::Converters::Utf8FromUtf16(job_id);
 
-		if (SUCCEEDED(hr)) {
-			BG_JOB_STATE state;
-			HANDLE h_timer = NULL;
-			LARGE_INTEGER due_time;
-			BG_JOB_PROGRESS progress;
+			hr = CoGetInterfaceAndReleaseStream(p_stream,
+				__uuidof(IBackgroundCopyManager), (void**)&l_pbcm);
+			p_stream->Release();
 
-			due_time.QuadPart = -10000000;  //Poll every 1 second
-			h_timer = CreateWaitableTimer(NULL, FALSE, L"ProgressTrackerTimer");
-			SetWaitableTimer(h_timer, &due_time, 1000, NULL, NULL, 0);
+			hr = l_pbcm->GetJob(guid, &p_job);
 
-			do
-			{
-				WaitForSingleObject(h_timer, INFINITE);
+			if (SUCCEEDED(hr)) {
+				BG_JOB_STATE state;
+				HANDLE h_timer = NULL;
+				LARGE_INTEGER due_time;
+				BG_JOB_PROGRESS progress;
 
-				hr = p_job->GetState(&state);
-				if (FAILED(hr))
+				due_time.QuadPart = -(10000000 / 10);  //Poll every 1/10 of a second
+				h_timer = CreateWaitableTimer(NULL, FALSE, L"ProgressTrackerTimer");
+				SetWaitableTimer(h_timer, &due_time, 1000, NULL, NULL, 0);
+
+				do
 				{
-					//Handle error
-				}
-				
-				if (state == BG_JOB_STATE_TRANSFERRED)
-				{
-					IEnumBackgroundCopyFiles* p_files = NULL;
-					IBackgroundCopyFile* p_file = NULL;
-					LPWSTR file_name;
+					WaitForSingleObject(h_timer, INFINITE);
 
-					p_job->EnumFiles(&p_files);
-					p_files->Next(1, &p_file, NULL);
-					p_file->GetLocalName(&file_name);
-
-					auto utf8_file_name = helpers::Converters::Utf8FromUtf16(file_name);
-
-					int pgr = 100;
-					flutter::EncodableMap progress_map = {
-						{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
-						{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
-						{flutter::EncodableValue("status"), flutter::EncodableValue(0)},
-						{flutter::EncodableValue("filePath"), flutter::EncodableValue(utf8_file_name)},
-					};
-
-					if (file_name) CoTaskMemFree(file_name);
-					if (p_file) {
-						p_file->Release();
-						p_file = NULL;
-					}
-					if (p_files) {
-						p_files->Release();
-						p_files = NULL;
+					hr = p_job->GetState(&state);
+					if (FAILED(hr))
+					{
+						//Handle error
 					}
 
-					p_job->Complete();
+					if (state == BG_JOB_STATE_TRANSFERRED)
+					{
+						IEnumBackgroundCopyFiles* p_files = NULL;
+						IBackgroundCopyFile* p_file = NULL;
+						LPWSTR file_name;
 
-					channel->InvokeMethod("notifyProgress",
-						std::make_unique<flutter::EncodableValue>(progress_map));
-				}
-				else if (state == BG_JOB_STATE_ERROR || state == BG_JOB_STATE_TRANSIENT_ERROR)
-				{
-					IBackgroundCopyError* p_error = NULL;
+						p_job->EnumFiles(&p_files);
+						p_files->Next(1, &p_file, NULL);
+						p_file->GetLocalName(&file_name);
 
-					p_job->GetError(&p_error);
-					//p_error->
+						auto utf8_file_name = helpers::Converters::Utf8FromUtf16(file_name);
 
-					flutter::EncodableMap progress_map = {
-						{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
-						{flutter::EncodableValue("progress"), flutter::EncodableValue(0)},
-						{flutter::EncodableValue("status"), flutter::EncodableValue(4)},
-						{flutter::EncodableValue("reason"), flutter::EncodableValue(4)},
-					};
-					channel->InvokeMethod("notifyProgress",
-						std::make_unique<flutter::EncodableValue>(progress_map));
+						int pgr = 100;
+						flutter::EncodableMap progress_map = {
+							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
+							{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
+							{flutter::EncodableValue("status"), flutter::EncodableValue(0)},
+							{flutter::EncodableValue("filePath"), flutter::EncodableValue(utf8_file_name)},
+						};
 
-					if (p_error) {
-						p_error->Release();
-						p_error = NULL;
+						if (file_name) CoTaskMemFree(file_name);
+						if (p_file) {
+							p_file->Release();
+							p_file = NULL;
+						}
+						if (p_files) {
+							p_files->Release();
+							p_files = NULL;
+						}
+
+						p_job->Complete();
+
+						channel->InvokeMethod("notifyProgress",
+							std::make_unique<flutter::EncodableValue>(progress_map));
+						break;
 					}
+					else if (state == BG_JOB_STATE_ERROR || state == BG_JOB_STATE_TRANSIENT_ERROR)
+					{
+						IBackgroundCopyError* p_error = NULL;
 
-					p_job->Cancel();
-				}
-				else if (state == BG_JOB_STATE_TRANSFERRING)
-				{
-					p_job->GetProgress(&progress);
-					int64_t pgr = (progress.BytesTransferred * 100) / progress.BytesTotal;
-					flutter::EncodableMap progress_map = {
-						{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
-						{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
-						{flutter::EncodableValue("status"), flutter::EncodableValue(1)},
-					};
-					channel->InvokeMethod("notifyProgress", 
-						std::make_unique<flutter::EncodableValue>(progress_map));
-				}
-			} while (state != BG_JOB_STATE_TRANSFERRED && state != BG_JOB_STATE_ERROR && state == BG_JOB_STATE_TRANSIENT_ERROR);
+						p_job->GetError(&p_error);
+						//p_error->
 
-			CancelWaitableTimer(h_timer);
-			CloseHandle(h_timer);
-		}
+						flutter::EncodableMap progress_map = {
+							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
+							{flutter::EncodableValue("progress"), flutter::EncodableValue(0)},
+							{flutter::EncodableValue("status"), flutter::EncodableValue(4)},
+							{flutter::EncodableValue("reason"), flutter::EncodableValue(4)},
+						};
+						channel->InvokeMethod("notifyProgress",
+							std::make_unique<flutter::EncodableValue>(progress_map));
 
-		if (p_job) {
-			p_job->Release();
-			p_job = NULL;
-		}
+						if (p_error) {
+							p_error->Release();
+							p_error = NULL;
+						}
+
+						p_job->Cancel();
+						break;
+					}
+					else if (state == BG_JOB_STATE_SUSPENDED)
+					{
+
+					}
+					else if (state == BG_JOB_STATE_TRANSFERRING)
+					{
+						p_job->GetProgress(&progress);
+						int64_t pgr = (progress.BytesTransferred * 100) / progress.BytesTotal;
+						flutter::EncodableMap progress_map = {
+							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
+							{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
+							{flutter::EncodableValue("status"), flutter::EncodableValue(1)},
+						};
+						channel->InvokeMethod("notifyProgress",
+							std::make_unique<flutter::EncodableValue>(progress_map));
+					}
+					else if (state == BG_JOB_STATE_CONNECTING)
+					{
+						flutter::EncodableMap progress_map = {
+							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
+							{flutter::EncodableValue("progress"), flutter::EncodableValue(0)},
+							{flutter::EncodableValue("status"), flutter::EncodableValue(2)},
+						};
+						channel->InvokeMethod("notifyProgress",
+							std::make_unique<flutter::EncodableValue>(progress_map));
+					}
+				} while (state == BG_JOB_STATE_CONNECTING ||
+						 state == BG_JOB_STATE_TRANSFERRING ||
+						 state == BG_JOB_STATE_SUSPENDED ||
+						 state == BG_JOB_STATE_ERROR ||
+						 state == BG_JOB_STATE_TRANSIENT_ERROR ||
+						 state == BG_JOB_STATE_TRANSFERRED);
+
+				CancelWaitableTimer(h_timer);
+				CloseHandle(h_timer);
+			}
+
+			if (p_job) {
+				p_job->Release();
+				p_job = NULL;
+			}
+			return; 
+		});
 	}
 
 	void FlDownloaderPlugin::OpenFile(LPCWSTR file_path) {
