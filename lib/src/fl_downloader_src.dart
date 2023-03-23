@@ -87,6 +87,12 @@ class FlDownloader {
   ///
   /// Returns the id of the download task (An integer on Android and iOS and a GUID String on Windows)
   ///
+  /// If you want to save the file in a custom subdirectory of the default download directory,
+  /// you can provide a relative path on [fileName]. For example, if you want to save the file
+  /// in a subdirectory named "my_downloads" of the default download directory, you can provide
+  /// "my_downloads/my_file_name" as the [fileName] using unix like separator (the Windows implementation
+  /// fixes the path separator automatically). The subdirectory will be created if it does not exist.
+  ///
   /// If a fileName is not provided, the file name will be extracted from the url and
   /// if the name extracted from the url contains forbidden characters, this characters
   /// will be replaced by a dash (-). The list of forbidden characters are:

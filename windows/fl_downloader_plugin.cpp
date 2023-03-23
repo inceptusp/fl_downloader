@@ -1,4 +1,5 @@
 #pragma comment(lib, "pathcch.lib")
+#pragma comment(lib, "shlwapi.lib")
 
 #include "fl_downloader_plugin.h"
 #include "helpers.h"
@@ -6,6 +7,7 @@
 #include <ppltasks.h>
 #include <pathcch.h>
 #include <shlobj.h>
+#include <shlwapi.h>
 #include <windows.h>
 #include <bits.h>
 #include <bits5_0.h>
@@ -199,9 +201,18 @@ namespace fl_downloader {
 			PWSTR p_full_file_path = (PWSTR)CoTaskMemAlloc(MAX_PATH);
 			lstrcpy(p_full_file_path, p_download_folder_path);
 			hr = PathCchAppend(p_full_file_path, MAX_PATH, file_name);
-
 			if (SUCCEEDED(hr))
 			{
+				if (((std::wstring)file_name).find_last_of(L"\\"))
+				{
+					std::wstring full_file_path_str(p_full_file_path);
+					auto path_to_wo_file = full_file_path_str.substr(0, full_file_path_str.find_last_of(L"\\"));
+					if (!PathFileExists(path_to_wo_file.c_str()))
+					{
+						SHCreateDirectory(NULL, path_to_wo_file.c_str());
+					}
+				}
+
 				hr = g_pbcm->CreateJob(file_name, BG_JOB_TYPE_DOWNLOAD, &job_id, &p_job);
 				if (SUCCEEDED(hr)) {
 					hr = p_job->AddFile(url, p_full_file_path);
@@ -224,7 +235,7 @@ namespace fl_downloader {
 								p_http_options = NULL;
 							}
 						}
-						hr = p_job->Resume();
+						//hr = p_job->Resume();
 						if (FAILED(hr))
 						{
 							std::wcout << ConvertReasonString(L"Failed to start download job.", hr) << std::endl;
@@ -332,7 +343,15 @@ namespace fl_downloader {
 					else if (state == BG_JOB_STATE_SUSPENDED)
 					{
 						p_job->GetProgress(&progress);
-						int64_t pgr = (progress.BytesTransferred * 100) / progress.BytesTotal;
+						int64_t pgr;
+						if(progress.BytesTotal <= 0)
+						{
+							pgr = 0;
+						}
+						else
+						{
+							pgr = (progress.BytesTransferred * 100) / progress.BytesTotal;
+						}
 						flutter::EncodableMap progress_map = {
 							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
 							{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
