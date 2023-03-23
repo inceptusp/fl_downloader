@@ -213,6 +213,8 @@ namespace fl_downloader {
 					}
 				}
 
+				SetFileNameToNotReplace(p_full_file_path);
+
 				hr = g_pbcm->CreateJob(file_name, BG_JOB_TYPE_DOWNLOAD, &job_id, &p_job);
 				if (SUCCEEDED(hr)) {
 					hr = p_job->AddFile(url, p_full_file_path);
@@ -235,7 +237,7 @@ namespace fl_downloader {
 								p_http_options = NULL;
 							}
 						}
-						//hr = p_job->Resume();
+						hr = p_job->Resume();
 						if (FAILED(hr))
 						{
 							std::wcout << ConvertReasonString(L"Failed to start download job.", hr) << std::endl;
@@ -289,7 +291,6 @@ namespace fl_downloader {
 
 			hr = CoGetInterfaceAndReleaseStream(p_stream,
 				__uuidof(IBackgroundCopyManager), (void**)&l_pbcm);
-			p_stream->Release();
 
 			if(FAILED(hr))
 			{
@@ -509,6 +510,35 @@ namespace fl_downloader {
 		}
 
 		return successful_canceled_downloads;
+	}
+
+	//returns true if [full_file_path] was changed, false otherwise
+	bool FlDownloaderPlugin::SetFileNameToNotReplace(LPWSTR &full_file_path)
+	{
+		int count = 1;
+		LPWSTR p_new_full_file_path = (LPWSTR)CoTaskMemAlloc(MAX_PATH);
+		LPWSTR file_extension = PathFindExtension(full_file_path);
+
+		lstrcpy(p_new_full_file_path, full_file_path);
+
+		while (PathFileExists(p_new_full_file_path)) 
+		{
+			std::wstringstream new_name;
+			PathRemoveExtension(p_new_full_file_path);
+			new_name << p_new_full_file_path << L" (" << count << L")" << file_extension;
+			lstrcpy(p_new_full_file_path, new_name.str().c_str());
+		}
+
+		if (((std::wstring)p_new_full_file_path).compare(full_file_path) == 0)
+		{
+			CoTaskMemFree(p_new_full_file_path);
+			return false;
+		}
+		else 
+		{
+			full_file_path = p_new_full_file_path;
+			return true;
+		}
 	}
 
 	std::wstring FlDownloaderPlugin::ConvertReasonString(LPCWSTR error, HRESULT hr)

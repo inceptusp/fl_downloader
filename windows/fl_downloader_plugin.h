@@ -32,6 +32,8 @@ namespace fl_downloader {
 
 		int Cancel(std::vector<std::wstring> download_ids);
 
+		bool SetFileNameToNotReplace(LPWSTR &full_file_path);
+
 		std::wstring ConvertReasonString(LPCWSTR error, HRESULT hr);
 	};
 
