@@ -38,7 +38,7 @@ class DownloadProgress {
   /// Downloaded file path
   late final String? filePath;
 
-  /// Download status reason. This is only available when the download status is failed or paused.
+  /// Download status reason. This is only available when the download status is failed (or paused on Android).
   late final StatusReason? statusReason;
 
   /// A class that represents the download progress and status
@@ -85,6 +85,7 @@ class StatusReason {
   /// Can be one of the following: <br> <br>
   /// * `ANDROID_ERROR` (in case of an error on Android) <br>
   /// * `IOS_ERROR` (in case of an error on iOS) <br>
+  /// * `WINDOWS_ERROR` (in case of an error on Windows) <br>
   /// * `HTTP_ERROR` (in case of an HTTP error) <br>
   /// * `ANDROID` (in case of a pause reason on Android)
   final String? type;

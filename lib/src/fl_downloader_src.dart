@@ -129,7 +129,7 @@ class FlDownloader {
   /// such as [DownloadStatus.paused] or [DownloadStatus.failed]. Same rule applies to Windows's BITS.
   ///
   /// If called on iOS, this method will do nothing.
-  static Future<void> attachDownloadProgress(int downloadId) async {
+  static Future<void> attachDownloadProgress(dynamic downloadId) async {
     if (Platform.isIOS) return;
     return await _channel
         .invokeMethod('attachDownloadTracker', <String, dynamic>{

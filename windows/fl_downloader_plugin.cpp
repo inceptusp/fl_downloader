@@ -20,17 +20,24 @@
 using namespace concurrency;
 
 namespace fl_downloader {
-	std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>,
-		std::default_delete<flutter::MethodChannel<flutter::EncodableValue>>> channel;
+	const std::string k_flutter_channel_name("dev.inceptusp.fl_downloader");
+	const std::string k_download_method_name("download");
+	const std::string k_attach_download_tracker_method_name("attachDownloadTracker");
+	const std::string k_open_file_method_name("openFile");
+	const std::string k_cancel_method_name("cancel");
+	const std::string k_notify_progress_method_name("notifyProgress");
 
 	IBackgroundCopyManager* g_pbcm = NULL;
+
+	std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>,
+		std::default_delete<flutter::MethodChannel<flutter::EncodableValue>>> channel;
 
 	// static
 	void FlDownloaderPlugin::RegisterWithRegistrar(
 		flutter::PluginRegistrarWindows* registrar) {
 		channel =
 			std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-				registrar->messenger(), "dev.inceptusp.fl_downloader",
+				registrar->messenger(), k_flutter_channel_name,
 				&flutter::StandardMethodCodec::GetInstance());
 
 		auto plugin = std::make_unique<FlDownloaderPlugin>();
@@ -50,8 +57,8 @@ namespace fl_downloader {
 			CLSCTX_LOCAL_SERVER, __uuidof(IBackgroundCopyManager),
 			(void**)&g_pbcm);
 
-		if (!SUCCEEDED(hr)) {
-			std::wcout << "Failed to initialize BITS instance or BITS 5.0 not found in this system." << std::endl;
+		if (FAILED(hr)) {
+			std::wcout << ConvertReasonString(L"Failed to initialize BITS instance or BITS 5.0 not found in this system.", hr) << std::endl;
 			std::wcout << "BITS 5.0 is available on Windows 8.1 and Windows 10 1607 or above (see https://learn.microsoft.com/en-us/windows/win32/bits/what-s-new)" << std::endl;
 		}
 	}
@@ -66,7 +73,7 @@ namespace fl_downloader {
 	void FlDownloaderPlugin::HandleMethodCall(
 		const flutter::MethodCall<flutter::EncodableValue>& method_call,
 		std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
-		if (method_call.method_name().compare("download") == 0) {
+		if (method_call.method_name().compare(k_download_method_name) == 0) {
 			const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
 			std::string url;
 			std::map<std::string, std::string> headers;
@@ -106,11 +113,15 @@ namespace fl_downloader {
 			{
 				TrackProgress(job_id.c_str(), p_stream);
 			}
+			else
+			{
+				std::wcout << ConvertReasonString(L"Failed to marshal the BITS interface. Progress will not be available", hr) << std::endl;
+			}
 
 			auto utf8_job_id = helpers::Converters::Utf8FromUtf16(job_id);
 			result->Success(flutter::EncodableValue(utf8_job_id));
 		}
-		else if (method_call.method_name().compare("attachDownloadTracker") == 0) {
+		else if (method_call.method_name().compare(k_attach_download_tracker_method_name) == 0) {
 			const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
 			std::string job_id;
 
@@ -130,10 +141,14 @@ namespace fl_downloader {
 			{
 				TrackProgress(utf16_job_id.c_str(), p_stream);
 			}
+			else
+			{
+				std::wcout << ConvertReasonString(L"Failed to copy the BITS interface. Progress will not be available", hr) << std::endl;
+			}
 
 			result->Success();
 		}
-		else if (method_call.method_name().compare("openFile") == 0) {
+		else if (method_call.method_name().compare(k_open_file_method_name) == 0) {
 			const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
 			std::string file_path;
 
@@ -150,7 +165,7 @@ namespace fl_downloader {
 
 			result->Success();
 		}
-		else if (method_call.method_name().compare("cancel") == 0) {
+		else if (method_call.method_name().compare(k_cancel_method_name) == 0) {
 			const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
 			std::vector<std::string> download_guids;
 
@@ -179,11 +194,14 @@ namespace fl_downloader {
 		PWSTR p_download_folder_path = NULL;
 
 		hr = SHGetKnownFolderPath(FOLDERID_Downloads, 0, NULL, &p_download_folder_path);
-		if (SUCCEEDED(hr)) {
+		if (SUCCEEDED(hr))
+		{
 			PWSTR p_full_file_path = (PWSTR)CoTaskMemAlloc(MAX_PATH);
 			lstrcpy(p_full_file_path, p_download_folder_path);
 			hr = PathCchAppend(p_full_file_path, MAX_PATH, file_name);
-			if (SUCCEEDED(hr)) {
+
+			if (SUCCEEDED(hr))
+			{
 				hr = g_pbcm->CreateJob(file_name, BG_JOB_TYPE_DOWNLOAD, &job_id, &p_job);
 				if (SUCCEEDED(hr)) {
 					hr = p_job->AddFile(url, p_full_file_path);
@@ -192,8 +210,13 @@ namespace fl_downloader {
 							IBackgroundCopyJobHttpOptions* p_http_options = NULL;
 
 							hr = p_job->QueryInterface(__uuidof(IBackgroundCopyJobHttpOptions), (void**)&p_http_options);
-							if (SUCCEEDED(hr)) {
+							if (SUCCEEDED(hr))
+							{
 								p_http_options->SetCustomHeaders(headers);
+							}
+							else
+							{
+								std::wcout << ConvertReasonString(L"Failed to set custom headers.", hr) << std::endl;
 							}
 
 							if (p_http_options) {
@@ -201,8 +224,20 @@ namespace fl_downloader {
 								p_http_options = NULL;
 							}
 						}
-						p_job->Resume();
+						hr = p_job->Resume();
+						if (FAILED(hr))
+						{
+							std::wcout << ConvertReasonString(L"Failed to start download job.", hr) << std::endl;
+						}
 					}
+					else
+					{
+						std::wcout << ConvertReasonString(L"Failed to add download file to job.", hr) << std::endl;
+					}
+				}
+				else
+				{
+					std::wcout << ConvertReasonString(L"Failed to create download job.", hr) << std::endl;
 				}
 
 				if (p_job) {
@@ -210,7 +245,16 @@ namespace fl_downloader {
 					p_job = NULL;
 				}
 			}
+			else
+			{
+				std::wcout << ConvertReasonString(L"Failed to mount the save file path", hr) << std::endl;
+			}
+
 			if (p_full_file_path) CoTaskMemFree(p_full_file_path);
+		}
+		else
+		{
+			std::wcout << ConvertReasonString(L"Failed to get 'Downloads' folder path.", hr) << std::endl;
 		}
 
 		if(p_download_folder_path) CoTaskMemFree(p_download_folder_path);
@@ -236,6 +280,11 @@ namespace fl_downloader {
 				__uuidof(IBackgroundCopyManager), (void**)&l_pbcm);
 			p_stream->Release();
 
+			if(FAILED(hr))
+			{
+				std::wcout << ConvertReasonString(L"Failed to get copy of BITS interface. Progress will not be available", hr) << std::endl;
+			}
+
 			hr = l_pbcm->GetJob(guid, &p_job);
 
 			if (SUCCEEDED(hr)) {
@@ -255,10 +304,84 @@ namespace fl_downloader {
 					hr = p_job->GetState(&state);
 					if (FAILED(hr))
 					{
-						//Handle error
+						std::wcout << ConvertReasonString(L"Failed to get job state", hr) << std::endl;
 					}
 
-					if (state == BG_JOB_STATE_TRANSFERRED)
+					if (state == BG_JOB_STATE_CONNECTING)
+					{
+						flutter::EncodableMap progress_map = {
+							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
+							{flutter::EncodableValue("progress"), flutter::EncodableValue(0)},
+							{flutter::EncodableValue("status"), flutter::EncodableValue(2)},
+						};
+						channel->InvokeMethod("notifyProgress",
+							std::make_unique<flutter::EncodableValue>(progress_map));
+					}
+					else if (state == BG_JOB_STATE_TRANSFERRING)
+					{
+						p_job->GetProgress(&progress);
+						int64_t pgr = (progress.BytesTransferred * 100) / progress.BytesTotal;
+						flutter::EncodableMap progress_map = {
+							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
+							{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
+							{flutter::EncodableValue("status"), flutter::EncodableValue(1)},
+						};
+						channel->InvokeMethod("notifyProgress",
+							std::make_unique<flutter::EncodableValue>(progress_map));
+					}
+					else if (state == BG_JOB_STATE_SUSPENDED)
+					{
+						p_job->GetProgress(&progress);
+						int64_t pgr = (progress.BytesTransferred * 100) / progress.BytesTotal;
+						flutter::EncodableMap progress_map = {
+							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
+							{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
+							{flutter::EncodableValue("status"), flutter::EncodableValue(3)},
+						};
+						channel->InvokeMethod("notifyProgress",
+							std::make_unique<flutter::EncodableValue>(progress_map));
+						break;
+					}
+					else if (state == BG_JOB_STATE_ERROR || state == BG_JOB_STATE_TRANSIENT_ERROR)
+					{
+						IBackgroundCopyError* p_error = NULL;
+
+						hr = p_job->GetError(&p_error);
+						if (SUCCEEDED(hr))
+						{
+							LPWSTR p_error_description;
+							hr = p_error->GetErrorDescription(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+								&p_error_description);
+
+							if (FAILED(hr)) p_error_description = const_cast<LPTSTR>(L"Failed to get an error message");
+
+							auto fl_error_message = ConvertReasonString(p_error_description, hr);
+							auto utf8_fl_error_message = helpers::Converters::Utf8FromUtf16(fl_error_message);
+
+							flutter::EncodableMap progress_map = {
+								{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
+								{flutter::EncodableValue("progress"), flutter::EncodableValue(0)},
+								{flutter::EncodableValue("status"), flutter::EncodableValue(4)},
+								{flutter::EncodableValue("reason"), flutter::EncodableValue(utf8_fl_error_message)},
+							};
+							channel->InvokeMethod("notifyProgress",
+								std::make_unique<flutter::EncodableValue>(progress_map));
+
+							if (p_error_description) CoTaskMemFree(p_error_description);
+							if (p_error) {
+								p_error->Release();
+								p_error = NULL;
+							}
+						}
+						else
+						{
+							std::wcout << ConvertReasonString(L"Failed to get error object", hr) << std::endl;
+						}
+
+						p_job->Cancel();
+						break;
+					}
+					else if (state == BG_JOB_STATE_TRANSFERRED)
 					{
 						IEnumBackgroundCopyFiles* p_files = NULL;
 						IBackgroundCopyFile* p_file = NULL;
@@ -294,56 +417,6 @@ namespace fl_downloader {
 							std::make_unique<flutter::EncodableValue>(progress_map));
 						break;
 					}
-					else if (state == BG_JOB_STATE_ERROR || state == BG_JOB_STATE_TRANSIENT_ERROR)
-					{
-						IBackgroundCopyError* p_error = NULL;
-
-						p_job->GetError(&p_error);
-						//p_error->
-
-						flutter::EncodableMap progress_map = {
-							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
-							{flutter::EncodableValue("progress"), flutter::EncodableValue(0)},
-							{flutter::EncodableValue("status"), flutter::EncodableValue(4)},
-							{flutter::EncodableValue("reason"), flutter::EncodableValue(4)},
-						};
-						channel->InvokeMethod("notifyProgress",
-							std::make_unique<flutter::EncodableValue>(progress_map));
-
-						if (p_error) {
-							p_error->Release();
-							p_error = NULL;
-						}
-
-						p_job->Cancel();
-						break;
-					}
-					else if (state == BG_JOB_STATE_SUSPENDED)
-					{
-
-					}
-					else if (state == BG_JOB_STATE_TRANSFERRING)
-					{
-						p_job->GetProgress(&progress);
-						int64_t pgr = (progress.BytesTransferred * 100) / progress.BytesTotal;
-						flutter::EncodableMap progress_map = {
-							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
-							{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
-							{flutter::EncodableValue("status"), flutter::EncodableValue(1)},
-						};
-						channel->InvokeMethod("notifyProgress",
-							std::make_unique<flutter::EncodableValue>(progress_map));
-					}
-					else if (state == BG_JOB_STATE_CONNECTING)
-					{
-						flutter::EncodableMap progress_map = {
-							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
-							{flutter::EncodableValue("progress"), flutter::EncodableValue(0)},
-							{flutter::EncodableValue("status"), flutter::EncodableValue(2)},
-						};
-						channel->InvokeMethod("notifyProgress",
-							std::make_unique<flutter::EncodableValue>(progress_map));
-					}
 				} while (state == BG_JOB_STATE_CONNECTING ||
 						 state == BG_JOB_STATE_TRANSFERRING ||
 						 state == BG_JOB_STATE_SUSPENDED ||
@@ -353,6 +426,15 @@ namespace fl_downloader {
 
 				CancelWaitableTimer(h_timer);
 				CloseHandle(h_timer);
+
+				if (l_pbcm) {
+					l_pbcm->Release();
+					l_pbcm = NULL;
+				}
+			}
+			else
+			{
+				std::wcout << ConvertReasonString(L"Failed to get download job to track progress", hr) << std::endl;
 			}
 
 			if (p_job) {
@@ -376,14 +458,29 @@ namespace fl_downloader {
 			GUID guid;
 
 			hr = CLSIDFromString(guid_string.c_str(), &guid);
-			if (SUCCEEDED(hr)) {
+			if (SUCCEEDED(hr))
+			{
 				hr = g_pbcm->GetJobW(guid, &p_job);
-				if (SUCCEEDED(hr)) {
+				if (SUCCEEDED(hr))
+				{
 					hr = p_job->Cancel();
-					if (SUCCEEDED(hr)) {
+					if (SUCCEEDED(hr))
+					{
 						successful_canceled_downloads++;
 					}
+					else
+					{
+						std::wcout << ConvertReasonString(L"Failed to cancel job.", hr) << std::endl;
+					}
 				}
+				else
+				{
+					std::wcout << ConvertReasonString(L"Failed to get job for cancelling", hr) << std::endl;
+				}
+			}
+			else
+			{
+				std::wcout << ConvertReasonString(L"Failed to convert guid from string.", hr) << std::endl;
 			}
 
 			if (p_job) {
@@ -393,6 +490,30 @@ namespace fl_downloader {
 		}
 
 		return successful_canceled_downloads;
+	}
+
+	std::wstring FlDownloaderPlugin::ConvertReasonString(LPCWSTR error, HRESULT hr)
+	{
+		std::wstring errorstr(error);
+		std::wstringstream wstringstr;
+
+		if (errorstr.find(L"HTTP") != std::string::npos)
+		{
+			std::wstring http_str(L"HTTP status ");
+			wstringstr << L"HTTP_ERROR(";
+			wstringstr << errorstr.substr(errorstr.find(http_str) + http_str.length(), 3);
+			wstringstr << L")";
+		}
+		else 
+		{
+			wstringstr << L"WINDOWS_ERROR(0x" << std::hex << hr << L"): ";
+			wstringstr << error;
+		}
+
+		std::wcout << error << std::endl;
+		std::wcout << wstringstr.str() << std::endl;
+
+		return wstringstr.str();
 	}
 
 }  // namespace fl_downloader

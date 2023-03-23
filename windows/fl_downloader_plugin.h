@@ -31,6 +31,8 @@ namespace fl_downloader {
 		void OpenFile(LPCWSTR file_path);
 
 		int Cancel(std::vector<std::wstring> download_ids);
+
+		std::wstring ConvertReasonString(LPCWSTR error, HRESULT hr);
 	};
 
 }  // namespace fl_downloader
