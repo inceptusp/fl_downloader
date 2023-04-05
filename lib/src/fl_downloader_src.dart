@@ -4,9 +4,10 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import 'storage_permission_status.dart';
+import 'storage_permission_status_src.dart';
 
 part 'download_progress_src.dart';
+part 'windows_impl_src.dart';
 
 class FlDownloader {
   static const MethodChannel _channel = MethodChannel(
@@ -17,6 +18,10 @@ class FlDownloader {
   static final StreamController<DownloadProgress> _progressStream =
       StreamController.broadcast();
 
+  /// Stream that emits download progress and status updates
+  ///
+  /// The stream is opened when the plugin is initialized and is a broadcast stream
+  /// so it can have multiple listeners at the same time.
   static Stream<DownloadProgress> get progressStream => _progressStream.stream;
 
   /// Initializes the plugin and open the stream to listen to download progress
@@ -44,9 +49,11 @@ class FlDownloader {
   /// Requests storage permission on Android
   ///
   /// If you app supports Android 9 or lower, the call to request storage permission
-  /// is mandatory. Aways returns [StoragePermissionStatus.granted] on Android 10 or higher and on iOS.
+  /// is mandatory. Aways returns [StoragePermissionStatus.granted] on Android 10 or higher, on iOS and Windows.
   static Future<StoragePermissionStatus> requestPermission() async {
-    if (Platform.isIOS) return StoragePermissionStatus.granted;
+    if (Platform.isIOS || Platform.isWindows) {
+      return StoragePermissionStatus.granted;
+    }
     try {
       final status = await _channel.invokeMethod<bool>(
         'checkStoragePermission',
@@ -76,9 +83,15 @@ class FlDownloader {
   }
 
   /// Create and starts a downlaod task on a local URLSession on iOS or
-  /// on the system download manager on Android
+  /// on the system download manager on Android or on BITS on Windows
   ///
-  /// Returns the id of the download task
+  /// Returns the id of the download task (An integer on Android and iOS and a GUID String on Windows)
+  ///
+  /// If you want to save the file in a custom subdirectory of the default download directory,
+  /// you can provide a relative path on [fileName]. For example, if you want to save the file
+  /// in a subdirectory named "my_downloads" of the default download directory, you can provide
+  /// "my_downloads/my_file_name" as the [fileName] using unix like separator (the Windows implementation
+  /// fixes the path separator automatically). The subdirectory will be created if it does not exist.
   ///
   /// If a fileName is not provided, the file name will be extracted from the url and
   /// if the name extracted from the url contains forbidden characters, this characters
@@ -87,21 +100,30 @@ class FlDownloader {
   /// # % & { } \ < > * ? / $ ! ' " : @ + ` | =
   /// ```
   /// (which covers all characters that are not allowed in most file systems)
-  static Future<int> download(
+  static Future<dynamic> download(
     String url, {
     Map<String, String>? headers,
     String? fileName,
   }) async {
-    return await _channel.invokeMethod('download', <String, dynamic>{
-      'url': url,
-      'headers': headers,
-      'fileName': fileName,
-    });
+    if (Platform.isWindows) {
+      final info = _WindowsImpl.prepareDownloadData(url, fileName: fileName);
+      return await _channel.invokeMethod('download', <String, dynamic>{
+        'url': info.url,
+        'headers': headers,
+        'fileName': info.fileName,
+      });
+    } else {
+      return await _channel.invokeMethod('download', <String, dynamic>{
+        'url': url,
+        'headers': headers,
+        'fileName': fileName,
+      });
+    }
   }
 
   /// Attach the download progress stream to an untracked download task.
   ///
-  /// This method is only available on Android and should be called if you want to
+  /// This method is only available on Android and Windows and should be called if you want to
   /// track the progress of a download task that has received a status different from [DownloadStatus.running] or [DownloadStatus.pending]
   /// to poll for a new status. If called when the download task is in a status that is **not** considered as a "finished" download,
   /// this may cause unexpected behavior such as multiple progress updates for the same download task.
@@ -110,10 +132,10 @@ class FlDownloader {
   /// automatically and you have to poll for a new status to get the progress. This package
   /// do the polling for you, but you have to attach the download task to the stream if
   /// you want to get the progress updates after any status update that is considered as a "finished" download
-  /// such as [DownloadStatus.paused] or [DownloadStatus.failed].
+  /// such as [DownloadStatus.paused] or [DownloadStatus.failed]. Same rule applies to Windows's BITS.
   ///
   /// If called on iOS, this method will do nothing.
-  static Future<void> attachDownloadProgress(int downloadId) async {
+  static Future<void> attachDownloadProgress(dynamic downloadId) async {
     if (Platform.isIOS) return;
     return await _channel
         .invokeMethod('attachDownloadTracker', <String, dynamic>{
@@ -124,15 +146,20 @@ class FlDownloader {
   /// Open the downlaoded file on the default file loader on each platform
   ///
   /// You can open a downloaded file using the [downloadId] or the [filepath]
-  /// on Android. On iOS you can open using only the [filePath]
-  static Future<void> openFile({int? downloadId, String? filePath}) async {
+  /// on Android. On iOS and Windows you can open using only the [filePath]
+  static Future<void> openFile({dynamic downloadId, String? filePath}) async {
     assert(
       (downloadId != null) ^ (filePath != null),
-      'You can open a file by downloadId or by filePath, not both',
+      'You can open a file by downloadId or by filePath, not both\n'
+      "And both values can't be null",
     );
     assert(
       !Platform.isIOS || (Platform.isIOS && filePath != null),
       'On iOS you can only open a file by filePath',
+    );
+    assert(
+      !Platform.isWindows || (Platform.isWindows && filePath != null),
+      'On Windows you can only open a file by filePath',
     );
     return await _channel.invokeMethod('openFile', {
       'downloadId': downloadId,
@@ -141,17 +168,19 @@ class FlDownloader {
   }
 
   /// Cancels a list of ongoing downloads and return the number of canceled tasks
-  static Future<int> cancel(List<int> downloadIds) async {
+  static Future<int> cancel(List<dynamic> downloadIds) async {
     if (Platform.isAndroid) {
-      final convertedIds = Int64List.fromList(downloadIds);
+      final convertedIds = Int64List.fromList(downloadIds as List<int>);
       return await _channel.invokeMethod('cancel', {
         'downloadIds': convertedIds,
       });
-    } else if (Platform.isIOS) {
+    } else if (Platform.isIOS || Platform.isWindows) {
       return await _channel.invokeMethod('cancel', {
         'downloadIds': downloadIds,
       });
     }
-    throw UnimplementedError();
+    throw UnimplementedError(
+      'Platform ${Platform.operatingSystem} is not supported',
+    );
   }
 }

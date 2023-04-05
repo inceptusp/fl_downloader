@@ -1,3 +1,4 @@
+/// Represents the status of the storage access permission.
 enum StoragePermissionStatus {
   /// An error occurred while checking the permission status
   /// or requesting permission.
