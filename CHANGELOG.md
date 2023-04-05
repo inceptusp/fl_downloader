@@ -1,3 +1,10 @@
+## 2.0.0
+
+* Added Windows platform support using BITS ([Background Intelligent Transfer Service](https://learn.microsoft.com/en-us/windows/win32/bits/background-intelligent-transfer-service-portal))
+
+### BREAKING CHANGES
+* All `downloadId`s parameters and returns are now `dynamic` as mobile platforms returns ids as integers and Windows returns a GUID String. This may or may not break some apps logic.
+
 ## 1.2.0
 
 * Added error messaging returning on `DownloadStatus.failed` and reason on `DownloadStatus.paused`

@@ -3,7 +3,7 @@
 
 A plugin to download files using the native capabilities.
 
-On Android it uses the DownloadManager system service to download files to user's **Download** folder and, on iOS, it uses the URLSession to download files to the **App Documents** folder.
+On Android it uses the [DownloadManager](https://developer.android.com/reference/android/app/DownloadManager) system service and, on Windows, it uses [BITS](https://learn.microsoft.com/en-us/windows/win32/bits/background-intelligent-transfer-service-portal) to download files to user's **Downloads** folder and, on iOS, it uses the [URLSession](https://developer.apple.com/documentation/foundation/urlsession) to download files to the **App Documents** folder.
 
 ## iOS Configuration
 
@@ -32,3 +32,12 @@ android {
     [...]
 }
 ```
+
+## Windows Configuration
+
+There is no need for special configuration on Windows.
+
+**NOTE**: The following pages are important to know the limitations and to test the use of BITS:<br><br>
+[About BITS](https://learn.microsoft.com/en-us/windows/win32/bits/about-bits)<br>
+[HTTP Requirements for BITS Downloads](https://learn.microsoft.com/en-us/windows/win32/bits/http-requirements-for-bits-downloads)<br>
+[BITSAdmin tool](https://learn.microsoft.com/en-us/windows/win32/bits/bitsadmin-tool)

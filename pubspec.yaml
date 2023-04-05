@@ -1,20 +1,20 @@
 name: fl_downloader
 description: A plugin to download files using the native capabilities.
-  URLSession on iOS and DownloadManager on Android
-version: 1.2.0
+  URLSession on iOS, DownloadManager on Android and BITS on Windows.
+version: 2.0.0
 #homepage:
 repository: https://github.com/inceptusp/fl_downloader
 
 environment:
-  sdk: ">=2.17.0 <3.0.0"
-  flutter: ">=1.10.0 <4.0.0"
+  sdk: ">=2.17.0 <4.0.0"
+  flutter: ">=1.10.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
 dev_dependencies:
-  flutter_lints: ^2.0.0
+  flutter_lints: ^2.0.1
   flutter_test:
     sdk: flutter
 
@@ -26,3 +26,5 @@ flutter:
         pluginClass: FlDownloaderPlugin
       ios:
         pluginClass: FlDownloaderPlugin
+      windows:
+        pluginClass: FlDownloaderPluginCApi
