@@ -27,6 +27,8 @@ apply plugin: 'kotlin-android'
 android {
     compileSdkVersion 33
 
+    namespace 'dev.inceptusp.fl_downloader'
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
