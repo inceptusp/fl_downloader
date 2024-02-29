@@ -1,6 +1,6 @@
-## 2.1.0
+## 2.0.1
 
-* Updated native build scripts
+* Updated native build scripts to support AGP 8
 * Bumped min Flutter version to 3.10.0
 
 ## 2.0.0
