@@ -1,3 +1,7 @@
+## 2.0.1+1
+
+* Fixed a README typo
+
 ## 2.0.1
 
 * Updated native build scripts to support AGP 8
