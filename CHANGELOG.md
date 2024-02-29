@@ -1,3 +1,8 @@
+## 2.1.0
+
+* Updated native build scripts
+* Bumped min Flutter version to 3.10.0
+
 ## 2.0.0
 
 * Added Windows platform support using BITS ([Background Intelligent Transfer Service](https://learn.microsoft.com/en-us/windows/win32/bits/background-intelligent-transfer-service-portal))

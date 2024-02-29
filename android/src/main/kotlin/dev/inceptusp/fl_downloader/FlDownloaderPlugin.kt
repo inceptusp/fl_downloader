@@ -30,7 +30,6 @@ import io.flutter.plugin.common.PluginRegistry.RequestPermissionsResultListener
 import kotlinx.coroutines.*
 import java.io.File
 
-
 class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, RequestPermissionsResultListener {
   private lateinit var channel: MethodChannel
   private lateinit var activityBindings: ActivityPluginBinding
@@ -166,7 +165,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     if(filePath == null) {
       val cursor = manager.query(Query().setFilterById(downloadId!!))
       if (cursor.moveToFirst()) {
-        downloadedTo = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
+        downloadedTo = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
       }
       cursor.close()
     }
@@ -216,8 +215,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     while (!finishDownload) {
       val cursor: Cursor = manager.query(Query().setFilterById(downloadId!!))
       if (cursor.moveToFirst()) {
-        val status = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS))
-        when (status) {
+        when (cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
           DownloadManager.STATUS_FAILED -> {
             finishDownload = true
             if (timerCoroutine.isActive) timerCoroutine.cancel()
@@ -240,11 +238,11 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
             val convertedReason = convertReasonString(reason)
             Log.d("fl_downloader", "$convertedReason")
             val total =
-                    cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
             if (total >= 0) {
               val downloaded =
                       cursor.getLong(
-                              cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                              cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
                       )
               progress = (downloaded * 100L / total).toInt()
               withContext(Dispatchers.Main) {
@@ -274,12 +272,12 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
           }
           DownloadManager.STATUS_RUNNING -> {
             val total =
-                    cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
             if (total >= 0) {
               if (timerCoroutine.isActive) timerCoroutine.cancel()
               val downloaded =
                       cursor.getLong(
-                              cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                              cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
                       )
               if (total != 0L) {
                 progress = (downloaded * 100L / total).toInt()
@@ -293,7 +291,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
             }
           }
           DownloadManager.STATUS_SUCCESSFUL -> {
-            val filePath = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
+            val filePath = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
             progress = 100
             finishDownload = true
             if (timerCoroutine.isActive) timerCoroutine.cancel()

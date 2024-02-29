@@ -1,5 +1,6 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="dev.inceptusp.fl_downloader_example">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+   <uses-permission android:name="android.permission.INTERNET"/>
+   
    <application
         android:label="fl_downloader_example"
         android:name="${applicationName}"
