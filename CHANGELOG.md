@@ -1,3 +1,7 @@
+## 2.0.2
+
+* Added iOS Privacy Manifest
+
 ## 2.0.1+1
 
 * Fixed a README typo
