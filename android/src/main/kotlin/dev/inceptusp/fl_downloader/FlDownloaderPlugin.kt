@@ -173,7 +173,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     val authority = context.applicationContext.packageName + ".flDownloader.provider"
     val fileUri = Uri.parse(downloadedTo)
     val mimeMap = MimeTypeMap.getSingleton()
-    val ext = MimeTypeMap.getFileExtensionFromUrl(fileUri.path)
+    val ext = MimeTypeMap.getFileExtensionFromUrl(fileUri.encodedPath)
     var type = mimeMap.getMimeTypeFromExtension(ext)
     if (type == null) type = "*/*"
     val uri = FileProvider.getUriForFile(context, authority, File(fileUri.path!!))
