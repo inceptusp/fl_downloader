@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
-import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.os.Environment
@@ -29,6 +28,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.PluginRegistry.RequestPermissionsResultListener
 import kotlinx.coroutines.*
 import java.io.File
+import androidx.core.net.toUri
 
 class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, RequestPermissionsResultListener {
   private lateinit var channel: MethodChannel
@@ -143,15 +143,17 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
 
   private fun download(url: String?, headers: Map<String, String>?, fileName: String?): Long {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-    val uri = Uri.parse(url)
+    val uri = url?.toUri()
     val request = DownloadManager.Request(uri)
     request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-    request.setDestinationInExternalPublicDir(
-        Environment.DIRECTORY_DOWNLOADS,
-        fileName ?: uri.lastPathSegment?.replace(
-          Regex("[#%&{}\\\\<>*?/\$!'\":@+`|=]"), "-"
-        ) ?: "unknown"
-    )
+      if (uri != null) {
+          request.setDestinationInExternalPublicDir(
+              Environment.DIRECTORY_DOWNLOADS,
+              fileName ?: uri.lastPathSegment?.replace(
+                  Regex("[#%&{}\\\\<>*?/\$!'\":@+`|=]"), "-"
+              ) ?: "unknown"
+          )
+      }
     for (header in headers?.keys ?: emptyList()) {
       request.addRequestHeader(header, headers!![header])
     }
@@ -171,9 +173,9 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     }
 
     val authority = context.applicationContext.packageName + ".flDownloader.provider"
-    val fileUri = Uri.parse(downloadedTo)
+    val fileUri = downloadedTo!!.toUri()
     val mimeMap = MimeTypeMap.getSingleton()
-    val ext = MimeTypeMap.getFileExtensionFromUrl(fileUri.path)
+    val ext = MimeTypeMap.getFileExtensionFromUrl(fileUri.encodedPath)
     var type = mimeMap.getMimeTypeFromExtension(ext)
     if (type == null) type = "*/*"
     val uri = FileProvider.getUriForFile(context, authority, File(fileUri.path!!))

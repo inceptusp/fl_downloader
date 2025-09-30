@@ -1,3 +1,11 @@
+## 2.1.0
+
+* Added missing `NSPrivacyCollectedDataTypes` key on PrivacyInfo (thx to [@SullyMatthieu](https://github.com/SullyMatthieu))
+* Fixed android MIME type detection when the file name contains spaces (thx to [@monoblaine](https://github.com/monoblaine))
+* Migrate android build scripts from Groovy to Kotlin DSL
+* Bumped iOS min version to 13.0 to match latest flutter min iOS version support
+* Bumped android min version to 24 to match latest flutter min android version support
+
 ## 2.0.2
 
 * Added iOS Privacy Manifest
