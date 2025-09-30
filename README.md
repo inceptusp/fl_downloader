@@ -27,7 +27,7 @@ If your app supports Android 9 (API 28) or bellow it is mandatory to call `reque
 **NOTE**: This plugins expects that `compileSdk` is the latest Android SDK, eg.:
 ```groovy
 android {
-    compileSdk 34
+    compileSdk 36
 
     [...]
 }
