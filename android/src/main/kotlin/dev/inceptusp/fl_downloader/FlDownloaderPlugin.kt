@@ -66,7 +66,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
           result.success(null)
         }
         "download" -> {
-          val downloadId = download(call.argument("url"), call.argument("headers"), call.argument("fileName"))
+          val downloadId = download(call.argument("url"), call.argument("headers"), call.argument("fileName"), call.argument("subFolder"), call.argument("notificationType"))
           CoroutineScope(Dispatchers.Default).launch {
             trackProgress(downloadId)
           }
@@ -141,19 +141,26 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     )
   }
 
-  private fun download(url: String?, headers: Map<String, String>?, fileName: String?): Long {
+  private fun download(url: String?, headers: Map<String, String>?, fileName: String?, subFolder: String?, notificationType: Int?): Long {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     val uri = url?.toUri()
     val request = DownloadManager.Request(uri)
-    request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-      if (uri != null) {
-          request.setDestinationInExternalPublicDir(
-              Environment.DIRECTORY_DOWNLOADS,
-              fileName ?: uri.lastPathSegment?.replace(
-                  Regex("[#%&{}\\\\<>*?/\$!'\":@+`|=]"), "-"
-              ) ?: "unknown"
-          )
-      }
+    request.setNotificationVisibility(notificationType ?: DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+    if (uri != null) {
+      val finalFileName = fileName ?: uri.lastPathSegment?.replace(
+        Regex("[#%&{}\\\\<>*?/\$!'\":@+`|=]"),
+        "-"
+      ) ?: "unknown"
+
+      val destination = if (subFolder != null) {
+        val subFolderFile = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), subFolder)
+        if (!subFolderFile.exists()) {
+          subFolderFile.mkdirs()
+        }
+        File.separator + subFolder + File.separator + finalFileName
+      } else finalFileName
+      request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, destination)
+    }
     for (header in headers?.keys ?: emptyList()) {
       request.addRequestHeader(header, headers!![header])
     }
@@ -191,6 +198,27 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
   private fun cancelDownload(vararg downloadIds: Long): Int {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     return manager.remove(*downloadIds)
+  }
+
+  /**
+   * Retrieves the original download URL for a given download ID.
+   *
+   * This function queries the Android [DownloadManager] to find the
+   * original URL from which the file was downloaded.
+   *
+   * @param downloadId The ID of the download to query.
+   * @return The original download URL as a [String], or `null` if the
+   * download ID is not found or the URL is not available.
+   */
+  private  fun getDownloadUrlById(downloadId: Long?) : String? {
+    val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+    return manager.query(Query().setFilterById(downloadId!!)).use { cursor ->
+      if (cursor.moveToFirst()) {
+        cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_URI))
+      } else {
+        null
+      }
+    }
   }
 
   private suspend fun trackProgress(downloadId: Long?) {

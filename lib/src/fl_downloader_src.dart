@@ -104,6 +104,8 @@ class FlDownloader {
     String url, {
     Map<String, String>? headers,
     String? fileName,
+    String? subFolder,
+    int? notificationType
   }) async {
     if (Platform.isWindows) {
       final info = _WindowsImpl.prepareDownloadData(url, fileName: fileName);
@@ -117,6 +119,8 @@ class FlDownloader {
         'url': url,
         'headers': headers,
         'fileName': fileName,
+        'subFolder': subFolder,
+        'notificationType': notificationType
       });
     }
   }
@@ -183,4 +187,15 @@ class FlDownloader {
       'Platform ${Platform.operatingSystem} is not supported',
     );
   }
+
+  /// representing the visibility of the download notification on Android platform
+  /// This download doesn't show in the UI or in the notifications.
+  static int VISIBILITY_HIDDEN = 2;
+  /// This download is visible but only shows in the notifications while it's in
+  static int VISIBILITY_VISIBLE = 0;
+  /// This download is visible and shows in the notifications while in progress
+  /// and after completion.
+  static int VISIBILITY_VISIBLE_NOTIFY_COMPLETED = 1;
+  /// This download shows in the notifications after completion ONLY.
+  static int VISIBILITY_VISIBLE_NOTIFY_ONLY_COMPLETION = 3;
 }
