@@ -195,11 +195,14 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
 
   private suspend fun trackProgress(downloadId: Long?) {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+    val downloadUrl = getDownloadUrlById(downloadId)
+
     var finishDownload = false
     var lastProgress = -1
     var progress = 0
     withContext(Dispatchers.Main) {
-      channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 2))
+      channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 2, "fileUrl" to downloadUrl))
     }
     val timerCoroutine = CoroutineScope(Dispatchers.Default).launch {
       SystemClock.sleep(15000)
@@ -229,6 +232,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
                       mapOf("downloadId" to downloadId,
                               "progress" to 0,
                               "status" to 4,
+                              "fileUrl" to downloadUrl,
                               "reason" to convertedReason)
               )
             }
@@ -252,6 +256,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
                         mapOf("downloadId" to downloadId,
                                 "progress" to progress,
                                 "status" to 3,
+                                "fileUrl" to downloadUrl,
                                 "reason" to convertedReason)
                 )
               }
@@ -261,6 +266,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
                         mapOf("downloadId" to downloadId,
                                 "progress" to progress,
                                 "status" to 3,
+                                "fileUrl" to downloadUrl,
                                 "reason" to convertedReason)
                 )
               }
@@ -268,7 +274,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
           }
           DownloadManager.STATUS_PENDING -> {
             withContext(Dispatchers.Main) {
-              channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 2))
+              channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 2,"fileUrl" to downloadUrl))
             }
             SystemClock.sleep(250)
           }
@@ -287,7 +293,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
               if (progress != lastProgress) {
                 lastProgress = progress
                 withContext(Dispatchers.Main) {
-                  channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 1))
+                  channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 1,"fileUrl" to downloadUrl))
                 }
               }
             }
@@ -298,7 +304,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
             finishDownload = true
             if (timerCoroutine.isActive) timerCoroutine.cancel()
             withContext(Dispatchers.Main) {
-              channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 0, "filePath" to filePath))
+              channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 0, "filePath" to filePath,"fileUrl" to downloadUrl))
             }
           }
         }

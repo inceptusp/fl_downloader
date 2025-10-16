@@ -41,6 +41,8 @@ class DownloadProgress {
   /// Download status reason. This is only available when the download status is failed (or paused on Android).
   late final StatusReason? statusReason;
 
+  late final String? fileUrl;
+
   /// A class that represents the download progress and status
   DownloadProgress({
     required this.downloadId,
@@ -48,6 +50,7 @@ class DownloadProgress {
     required this.status,
     this.filePath,
     this.statusReason,
+    this.fileUrl
   });
 
   factory DownloadProgress._fromMap(Map<String, dynamic> map) {
@@ -56,6 +59,7 @@ class DownloadProgress {
       progress: map['progress'],
       status: DownloadStatus.values[map['status']],
       filePath: map.containsKey('filePath') ? map['filePath'] : null,
+      fileUrl: map.containsKey('fileUrl') ? map['fileUrl'] : null,
       statusReason: map.containsKey('reason')
           ? StatusReason._fromMap({
               'code': map['reason'] != null
@@ -72,7 +76,7 @@ class DownloadProgress {
 
   @override
   String toString() {
-    return 'Progress{downloadId: $downloadId, progress: $progress, status: $status, filePath: $filePath, statusReason: $statusReason}';
+    return 'Progress{downloadId: $downloadId, progress: $progress, status: $status, filePath: $filePath, fileUrl: $fileUrl, statusReason: $statusReason}';
   }
 }
 
