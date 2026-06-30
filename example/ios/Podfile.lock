@@ -1,20 +1,14 @@
 PODS:
-  - fl_downloader (0.0.1):
-    - Flutter
   - Flutter (1.0.0)
 
 DEPENDENCIES:
-  - fl_downloader (from `.symlinks/plugins/fl_downloader/ios`)
   - Flutter (from `Flutter`)
 
 EXTERNAL SOURCES:
-  fl_downloader:
-    :path: ".symlinks/plugins/fl_downloader/ios"
   Flutter:
     :path: Flutter
 
 SPEC CHECKSUMS:
-  fl_downloader: 4539c2e6c6fd19007e8fd362ae553f216d391f04
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
 
 PODFILE CHECKSUM: 0dbd5a87e0ace00c9610d2037ac22083a01f861d

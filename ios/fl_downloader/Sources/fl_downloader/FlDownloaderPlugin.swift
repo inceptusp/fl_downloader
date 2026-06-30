@@ -2,7 +2,7 @@ import Flutter
 import os
 import UIKit
 
-public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
+public class FlDownloaderPlugin: NSObject, FlutterPlugin {
     private static let kFlutterChannelName: String = "dev.inceptusp.fl_downloader"
     private static let kDownloadMethodName: String = "download"
     private static let kOpenFileMethodName: String = "openFile"
@@ -19,20 +19,20 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         channel = FlutterMethodChannel(name: kFlutterChannelName, binaryMessenger: registrar.messenger())
-        let instance = SwiftFlDownloaderPlugin()
+        let instance = FlDownloaderPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel!)
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         let arguments: Dictionary<String, Any> = call.arguments as! Dictionary<String, Any>
-        if call.method == SwiftFlDownloaderPlugin.kDownloadMethodName {
+        if call.method == FlDownloaderPlugin.kDownloadMethodName {
             let taskId = download(url: arguments["url"] as! String,
                   headers: arguments["headers"] as? [String: String],
                   fileName: arguments["fileName"] as? String)
             result(taskId)
-        } else if call.method == SwiftFlDownloaderPlugin.kOpenFileMethodName {
+        } else if call.method == FlDownloaderPlugin.kOpenFileMethodName {
             openFile(path: arguments["filePath"] as! String)
-        } else if call.method == SwiftFlDownloaderPlugin.kCancelMethodName {
+        } else if call.method == FlDownloaderPlugin.kCancelMethodName {
             result(cancel(taskIds: arguments["downloadIds"] as! [Int]))
         } else {
             result(FlutterMethodNotImplemented)
@@ -52,17 +52,17 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
         downloadTask.resume()
         
         let prefs = UserDefaults.standard;
-        if prefs.object(forKey: SwiftFlDownloaderPlugin.kDownloadNamesUD) != nil {
-            var downloadNames = prefs.array(forKey: SwiftFlDownloaderPlugin.kDownloadNamesUD)
+        if prefs.object(forKey: FlDownloaderPlugin.kDownloadNamesUD) != nil {
+            var downloadNames = prefs.array(forKey: FlDownloaderPlugin.kDownloadNamesUD)
             let dict = ["url": downloadTask.originalRequest?.url?.absoluteString ?? "",
                         "fileName": fileName ?? ""] as [String : Any]
             downloadNames?.append(dict)
-            prefs.set(downloadNames, forKey: SwiftFlDownloaderPlugin.kDownloadNamesUD)
+            prefs.set(downloadNames, forKey: FlDownloaderPlugin.kDownloadNamesUD)
         } else {
             let dict = ["url": downloadTask.originalRequest?.url?.absoluteString ?? "",
                         "fileName": fileName ?? ""] as [String : Any]
             let list: Array = [dict]
-            prefs.set(list, forKey: SwiftFlDownloaderPlugin.kDownloadNamesUD)
+            prefs.set(list, forKey: FlDownloaderPlugin.kDownloadNamesUD)
         }
         
         return downloadTask.taskIdentifier
@@ -90,9 +90,9 @@ public class SwiftFlDownloaderPlugin: NSObject, FlutterPlugin {
     }
 }
 
-extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegate {
+extension FlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegate {
     public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo fileURL: URL) {
-        var downloadNames = UserDefaults.standard.array(forKey: SwiftFlDownloaderPlugin.kDownloadNamesUD)
+        var downloadNames = UserDefaults.standard.array(forKey: FlDownloaderPlugin.kDownloadNamesUD)
         var fileName: String?
         
         do {
@@ -105,7 +105,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                 downloadNames?.removeAll(where: {
                     ($0 as! Dictionary<String, Any>)["url"] as! String == (dict as! Dictionary<String, Any>)["url"] as! String
                 })
-                UserDefaults.standard.set(downloadNames, forKey: SwiftFlDownloaderPlugin.kDownloadNamesUD)
+                UserDefaults.standard.set(downloadNames, forKey: FlDownloaderPlugin.kDownloadNamesUD)
             }
             
             let documentsURL = try
@@ -119,7 +119,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                 try FileManager.default.removeItem(at: savedURL)
             } catch {}
                 try FileManager.default.moveItem(at: fileURL, to: savedURL)
-                SwiftFlDownloaderPlugin.channel?.invokeMethod(SwiftFlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
+                FlDownloaderPlugin.channel?.invokeMethod(FlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
                 "downloadId": downloadTask.taskIdentifier,
                 "progress": 100,
                 "status": 0,
@@ -132,7 +132,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
                 } else {
                     NSLog("Download failed. HTTP Status %d", httpResponse.statusCode)
                 }
-                SwiftFlDownloaderPlugin.channel?.invokeMethod(SwiftFlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
+                FlDownloaderPlugin.channel?.invokeMethod(FlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
                     "downloadId": downloadTask.taskIdentifier,
                     "progress": 0,
                     "status": 4,
@@ -146,7 +146,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
             } else {
                 NSLog("Error saving downloaded file: %@", error as NSError)
             }
-            SwiftFlDownloaderPlugin.channel?.invokeMethod(SwiftFlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
+            FlDownloaderPlugin.channel?.invokeMethod(FlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
                 "downloadId": downloadTask.taskIdentifier,
                 "progress": 0,
                 "status": 4,
@@ -164,7 +164,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
             URLSessionTask.State.canceling: 5
         ]
         let percentage = (Float.init(current) / Float.init(total)) * 100.0
-        SwiftFlDownloaderPlugin.channel?.invokeMethod(SwiftFlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
+        FlDownloaderPlugin.channel?.invokeMethod(FlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
             "downloadId": downloadTask.taskIdentifier,
             "progress": Int.init(percentage),
             "status": Int.init(stateMapper[downloadTask.state]!),
@@ -173,7 +173,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
     
     public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if(error != nil) {
-            SwiftFlDownloaderPlugin.channel?.invokeMethod(SwiftFlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
+            FlDownloaderPlugin.channel?.invokeMethod(FlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
                 "downloadId": task.taskIdentifier,
                 "progress": 0,
                 "status": 4,
@@ -185,7 +185,7 @@ extension SwiftFlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegat
     }
 }
 
-extension SwiftFlDownloaderPlugin: UIDocumentInteractionControllerDelegate {
+extension FlDownloaderPlugin: UIDocumentInteractionControllerDelegate {
     public func documentInteractionControllerViewControllerForPreview(_ controller: UIDocumentInteractionController) -> UIViewController {
         if #available(iOS 13.0, *) {
             let scenes = UIApplication.shared.connectedScenes

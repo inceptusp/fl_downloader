@@ -1,3 +1,8 @@
+## 2.2.0
+
+* Added support for SwiftPM and AGP 9.0
+* Bumped min Flutter version to 3.38.1
+
 ## 2.1.0
 
 * Added missing `NSPrivacyCollectedDataTypes` key on PrivacyInfo (thx to [@SullyMatthieu](https://github.com/SullyMatthieu))

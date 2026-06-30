@@ -25,6 +25,8 @@ GeneratedPluginRegistrant.m
 !default.perspectivev3
 
 xcuserdata
+.build/
+.swiftpm/
 
 *.moved-aside
 
