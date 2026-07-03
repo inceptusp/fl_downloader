@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'android_notification_type_src.dart';
 import 'storage_permission_status_src.dart';
 
 part 'download_progress_src.dart';
@@ -97,13 +98,14 @@ class FlDownloader {
   /// if the name extracted from the url contains forbidden characters, this characters
   /// will be replaced by a dash (-). The list of forbidden characters are:
   /// ```bash
-  /// # % & { } \ < > * ? / $ ! ' " : @ + ` | =
+  /// # % & { } \ < > * ? $ ! ' " : @ + ` | =
   /// ```
   /// (which covers all characters that are not allowed in most file systems)
   static Future<dynamic> download(
     String url, {
     Map<String, String>? headers,
     String? fileName,
+    AndroidNotificationType? androidNotificationType,
   }) async {
     if (Platform.isWindows) {
       final info = _WindowsImpl.prepareDownloadData(url, fileName: fileName);
@@ -111,12 +113,16 @@ class FlDownloader {
         'url': info.url,
         'headers': headers,
         'fileName': info.fileName,
+        if (androidNotificationType != null)
+          'notificationType': androidNotificationType.value,
       });
     } else {
       return await _channel.invokeMethod('download', <String, dynamic>{
         'url': url,
         'headers': headers,
         'fileName': fileName,
+        if (androidNotificationType != null)
+          'notificationType': androidNotificationType.value,
       });
     }
   }
@@ -137,10 +143,10 @@ class FlDownloader {
   /// If called on iOS, this method will do nothing.
   static Future<void> attachDownloadProgress(dynamic downloadId) async {
     if (Platform.isIOS) return;
-    return await _channel
-        .invokeMethod('attachDownloadTracker', <String, dynamic>{
-      'downloadId': downloadId,
-    });
+    return await _channel.invokeMethod(
+      'attachDownloadTracker',
+      <String, dynamic>{'downloadId': downloadId},
+    );
   }
 
   /// Open the downlaoded file on the default file loader on each platform
