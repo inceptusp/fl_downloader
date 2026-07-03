@@ -27,8 +27,8 @@ public class FlDownloaderPlugin: NSObject, FlutterPlugin {
         let arguments: Dictionary<String, Any> = call.arguments as! Dictionary<String, Any>
         if call.method == FlDownloaderPlugin.kDownloadMethodName {
             let taskId = download(url: arguments["url"] as! String,
-                  headers: arguments["headers"] as? [String: String],
-                  fileName: arguments["fileName"] as? String)
+                                  headers: arguments["headers"] as? [String: String],
+                                  fileName: arguments["fileName"] as? String)
             result(taskId)
         } else if call.method == FlDownloaderPlugin.kOpenFileMethodName {
             openFile(path: arguments["filePath"] as! String)
@@ -98,33 +98,37 @@ extension FlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegate {
         do {
             let httpResponse = downloadTask.response as! HTTPURLResponse;
             if httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
-            if let dict = downloadNames?.first(where: {
-                ($0 as! Dictionary<String, Any>)["url"] as! String == downloadTask.originalRequest?.url?.absoluteString ?? ""
-            }) {
-                fileName = (dict as! Dictionary<String, Any>)["fileName"] as? String
-                downloadNames?.removeAll(where: {
-                    ($0 as! Dictionary<String, Any>)["url"] as! String == (dict as! Dictionary<String, Any>)["url"] as! String
-                })
-                UserDefaults.standard.set(downloadNames, forKey: FlDownloaderPlugin.kDownloadNamesUD)
-            }
-            
-            let documentsURL = try
-            FileManager.default.url(for: .documentDirectory,
-                                    in: .userDomainMask,
-                                    appropriateFor: nil,
-                                    create: true)
-                let filename = fileName!.isEmpty ? downloadTask.currentRequest?.url?.lastPathComponent.removingRegexMatches(pattern: "[#%&{}\\\\<>*?/$!'\":@+`|=]", replaceWith: "-") ?? "unknown" : fileName!
-            let savedURL = documentsURL.appendingPathComponent(filename)
-            do {
-                try FileManager.default.removeItem(at: savedURL)
-            } catch {}
+                if let dict = downloadNames?.first(where: {
+                    ($0 as! Dictionary<String, Any>)["url"] as! String == downloadTask.originalRequest?.url?.absoluteString ?? ""
+                }) {
+                    fileName = (dict as! Dictionary<String, Any>)["fileName"] as? String
+                    downloadNames?.removeAll(where: {
+                        ($0 as! Dictionary<String, Any>)["url"] as! String == (dict as! Dictionary<String, Any>)["url"] as! String
+                    })
+                    UserDefaults.standard.set(downloadNames, forKey: FlDownloaderPlugin.kDownloadNamesUD)
+                }
+                
+                let documentsURL = try
+                FileManager.default.url(for: .documentDirectory,
+                                        in: .userDomainMask,
+                                        appropriateFor: nil,
+                                        create: true)
+                var filename = fileName!.isEmpty ? downloadTask.currentRequest?.url?.lastPathComponent ?? "unknown" : fileName!
+                let forbiddenChars = CharacterSet(charactersIn: #"#%&{}\<>*?$!'":@+`|="#)
+                filename = filename.replacingCharacters(in: forbiddenChars, with: "-")
+                let savedURL = documentsURL.appendingPathComponent(filename)
+                do {
+                    try FileManager.default.removeItem(at: savedURL)
+                } catch {}
+                try FileManager.default.createDirectory(at: savedURL.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try FileManager.default.moveItem(at: fileURL, to: savedURL)
                 FlDownloaderPlugin.channel?.invokeMethod(FlDownloaderPlugin.kNotifyProgressMethodName, arguments:[
-                "downloadId": downloadTask.taskIdentifier,
-                "progress": 100,
-                "status": 0,
-                "filePath": savedURL.absoluteString
-            ])
+                    "downloadId": downloadTask.taskIdentifier,
+                    "progress": 100,
+                    "status": 0,
+                    "filePath": savedURL.absoluteString,
+                    "downloadUrl": downloadTask.originalRequest?.url?.absoluteString ?? ""
+                ])
             } else {
                 if #available(iOS 14.0, *) {
                     let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "fl_downloader")
@@ -136,7 +140,8 @@ extension FlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegate {
                     "downloadId": downloadTask.taskIdentifier,
                     "progress": 0,
                     "status": 4,
-                    "reason": "HTTP_ERROR(\(httpResponse.statusCode))"
+                    "reason": "HTTP_ERROR(\(httpResponse.statusCode))",
+                    "downloadUrl": downloadTask.originalRequest?.url?.absoluteString ?? ""
                 ])
             }
         } catch {
@@ -150,7 +155,8 @@ extension FlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegate {
                 "downloadId": downloadTask.taskIdentifier,
                 "progress": 0,
                 "status": 4,
-                "reason": "IOS_ERROR(\((error as NSError).code)): Error saving downloaded file (\(error as NSError))"
+                "reason": "IOS_ERROR(\((error as NSError).code)): Error saving downloaded file (\(error as NSError))",
+                "downloadUrl": downloadTask.originalRequest?.url?.absoluteString ?? ""
             ])
         }
     }
@@ -168,6 +174,7 @@ extension FlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegate {
             "downloadId": downloadTask.taskIdentifier,
             "progress": Int.init(percentage),
             "status": Int.init(stateMapper[downloadTask.state]!),
+            "downloadUrl": downloadTask.originalRequest?.url?.absoluteString ?? ""
         ])
     }
     
@@ -177,7 +184,8 @@ extension FlDownloaderPlugin: URLSessionDelegate, URLSessionDownloadDelegate {
                 "downloadId": task.taskIdentifier,
                 "progress": 0,
                 "status": 4,
-                "reason": "IOS_ERROR(\((error! as NSError).code)): Error on download task (\(error! as NSError))"
+                "reason": "IOS_ERROR(\((error! as NSError).code)): Error on download task (\(error! as NSError))",
+                "downloadUrl": task.originalRequest?.url?.absoluteString ?? ""
             ])
         } else {
             // Handled by didFinishDownloadingTo delegate
@@ -200,11 +208,7 @@ extension FlDownloaderPlugin: UIDocumentInteractionControllerDelegate {
 }
 
 extension String {
-    func removingRegexMatches(pattern: String, replaceWith: String = "") -> String? {
-        do {
-            let regex = try NSRegularExpression(pattern: pattern, options: .caseInsensitive)
-            let range = NSRange(location: 0, length: count)
-            return regex.stringByReplacingMatches(in: self, options: [], range: range, withTemplate: replaceWith)
-        } catch { return nil }
+    func replacingCharacters(in characterSet: CharacterSet, with replacement: String) -> String {
+        return self.components(separatedBy: characterSet).joined(separator: replacement)
     }
 }
