@@ -1,6 +1,8 @@
 part of 'fl_downloader_src.dart';
 
 class _WindowsImpl {
+  static final forbiddenChars = RegExp("[#%&{}<>*?/\$!'\":@+`|=]");
+
   static _PreparedDownloadData prepareDownloadData(
     String url, {
     String? fileName,
@@ -9,12 +11,12 @@ class _WindowsImpl {
     late final String fileNm;
 
     if (fileName != null) {
-      fileNm = fileName.replaceAll('/', '\\');
+      fileNm = fileName.replaceAll('/', '\\').replaceAll(forbiddenChars, '-');
     } else {
-      fileNm = uri.pathSegments.last.replaceAll(
-        RegExp("[#%&{}\\\\<>*?/\$!'\":@+`|=]"),
-        '-',
-      );
+      fileNm = uri.pathSegments.last.replaceAll('\\', '-').replaceAll(
+            forbiddenChars,
+            '-',
+          );
     }
 
     return _PreparedDownloadData(

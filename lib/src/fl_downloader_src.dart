@@ -113,8 +113,6 @@ class FlDownloader {
         'url': info.url,
         'headers': headers,
         'fileName': info.fileName,
-        if (androidNotificationType != null)
-          'notificationType': androidNotificationType.value,
       });
     } else {
       return await _channel.invokeMethod('download', <String, dynamic>{

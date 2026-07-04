@@ -324,6 +324,8 @@ namespace fl_downloader {
 				h_timer = CreateWaitableTimer(NULL, FALSE, L"ProgressTrackerTimer");
 				SetWaitableTimer(h_timer, &due_time, 1000, NULL, NULL, FALSE);
 
+				std::string addfile_url;
+
 				do
 				{
 					WaitForSingleObject(h_timer, INFINITE);
@@ -335,12 +337,28 @@ namespace fl_downloader {
 						break;
 					}
 
+					// Get the AddFile URL from the BITS download service when needed
+					if (addfile_url.empty()) {
+						IEnumBackgroundCopyFiles* p_files = NULL;
+						IBackgroundCopyFile* p_file = NULL;
+						LPWSTR remote_name;
+
+						p_job->EnumFiles(&p_files);
+						p_files->Next(1, &p_file, NULL);
+						p_file->GetRemoteName(&remote_name);
+
+						addfile_url = helpers::Converters::Utf8FromUtf16(remote_name);
+
+						if (remote_name) CoTaskMemFree(remote_name);
+					}
+
 					if (state == BG_JOB_STATE_CONNECTING)
 					{
 						flutter::EncodableMap progress_map = {
 							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
 							{flutter::EncodableValue("progress"), flutter::EncodableValue(0)},
 							{flutter::EncodableValue("status"), flutter::EncodableValue(2)},
+							{flutter::EncodableValue("downloadUrl"), flutter::EncodableValue(addfile_url)},
 						};
 						channel->InvokeMethod(k_notify_progress_method_name,
 							std::make_unique<flutter::EncodableValue>(progress_map));
@@ -361,6 +379,7 @@ namespace fl_downloader {
 							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
 							{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
 							{flutter::EncodableValue("status"), flutter::EncodableValue(1)},
+							{flutter::EncodableValue("downloadUrl"), flutter::EncodableValue(addfile_url)},
 						};
 						channel->InvokeMethod(k_notify_progress_method_name,
 							std::make_unique<flutter::EncodableValue>(progress_map));
@@ -381,6 +400,7 @@ namespace fl_downloader {
 							{flutter::EncodableValue("downloadId"), flutter::EncodableValue(utf8_guid_string)},
 							{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
 							{flutter::EncodableValue("status"), flutter::EncodableValue(3)},
+							{flutter::EncodableValue("downloadUrl"), flutter::EncodableValue(addfile_url)},
 						};
 						channel->InvokeMethod(k_notify_progress_method_name,
 							std::make_unique<flutter::EncodableValue>(progress_map));
@@ -407,6 +427,7 @@ namespace fl_downloader {
 								{flutter::EncodableValue("progress"), flutter::EncodableValue(0)},
 								{flutter::EncodableValue("status"), flutter::EncodableValue(4)},
 								{flutter::EncodableValue("reason"), flutter::EncodableValue(utf8_fl_error_message)},
+								{flutter::EncodableValue("downloadUrl"), flutter::EncodableValue(addfile_url)},
 							};
 							channel->InvokeMethod(k_notify_progress_method_name,
 								std::make_unique<flutter::EncodableValue>(progress_map));
@@ -443,6 +464,7 @@ namespace fl_downloader {
 							{flutter::EncodableValue("progress"), flutter::EncodableValue(pgr)},
 							{flutter::EncodableValue("status"), flutter::EncodableValue(0)},
 							{flutter::EncodableValue("filePath"), flutter::EncodableValue(utf8_file_name)},
+							{flutter::EncodableValue("downloadUrl"), flutter::EncodableValue(addfile_url)},
 						};
 
 						if (file_name) CoTaskMemFree(file_name);
@@ -462,11 +484,11 @@ namespace fl_downloader {
 						break;
 					}
 				} while (state == BG_JOB_STATE_CONNECTING ||
-						 state == BG_JOB_STATE_TRANSFERRING ||
-						 state == BG_JOB_STATE_SUSPENDED ||
-						 state == BG_JOB_STATE_ERROR ||
-						 state == BG_JOB_STATE_TRANSIENT_ERROR ||
-						 state == BG_JOB_STATE_TRANSFERRED);
+							 state == BG_JOB_STATE_TRANSFERRING ||
+							 state == BG_JOB_STATE_SUSPENDED ||
+							 state == BG_JOB_STATE_ERROR ||
+							 state == BG_JOB_STATE_TRANSIENT_ERROR ||
+							 state == BG_JOB_STATE_TRANSFERRED);
 
 				CancelWaitableTimer(h_timer);
 				CloseHandle(h_timer);
