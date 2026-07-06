@@ -29,12 +29,13 @@ import io.flutter.plugin.common.PluginRegistry.RequestPermissionsResultListener
 import kotlinx.coroutines.*
 import java.io.File
 import androidx.core.net.toUri
+import kotlin.time.Duration.Companion.milliseconds
 
 class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, RequestPermissionsResultListener {
   private lateinit var channel: MethodChannel
   private lateinit var activityBindings: ActivityPluginBinding
   private lateinit var context: Context
-  private lateinit var activity: Activity
+  private var activity: Activity? = null
   private val permissionRequestCode = 353696
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
@@ -101,11 +102,13 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     grantResults: IntArray
   ): Boolean {
     when (requestCode) {
-      permissionRequestCode -> if (grantResults.isNotEmpty()) {
-        val writePermissionStorage = grantResults[0] == PackageManager.PERMISSION_GRANTED
-        val readExternalStorage = grantResults[1] == PackageManager.PERMISSION_GRANTED
-        if (readExternalStorage && writePermissionStorage) {
-          channel.invokeMethod("onRequestPermissionResult", true)
+      permissionRequestCode -> {
+        if (grantResults.size >= 2) {
+          val writePermissionStorage = grantResults[0] == PackageManager.PERMISSION_GRANTED
+          val readExternalStorage = grantResults[1] == PackageManager.PERMISSION_GRANTED
+          channel.invokeMethod("onRequestPermissionResult", readExternalStorage && writePermissionStorage)
+        } else if (grantResults.isNotEmpty()) {
+          channel.invokeMethod("onRequestPermissionResult", grantResults[0] == PackageManager.PERMISSION_GRANTED)
         } else {
           channel.invokeMethod("onRequestPermissionResult", false)
         }
@@ -120,6 +123,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
 
   override fun onDetachedFromActivity() {
     activityBindings.removeRequestPermissionsResultListener(this)
+    activity = null
   }
 
   private fun checkPermissionStatus(): Boolean {
@@ -135,7 +139,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
 
   private fun requestPermission() {
     ActivityCompat.requestPermissions(
-      activity,
+      activity!!,
       arrayOf(WRITE_EXTERNAL_STORAGE, READ_EXTERNAL_STORAGE),
       permissionRequestCode
     )
@@ -158,7 +162,7 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
       }
       return manager.enqueue(request)
     } else {
-      Log.d("fl_downloader", "No download uri where provided.")
+      Log.d("fl_downloader", "No download URI was provided.")
       return -1;
     }
   }
@@ -168,20 +172,26 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
     var downloadedTo : String? = filePath
 
     if(filePath == null) {
-      val cursor = manager.query(Query().setFilterById(downloadId!!))
-      if (cursor.moveToFirst()) {
-        downloadedTo = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
+      manager.query(Query().setFilterById(downloadId!!)).use { cursor ->
+        if (cursor.moveToFirst()) {
+          downloadedTo = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
+        }
       }
-      cursor.close()
     }
 
+    val downloadedPath = downloadedTo ?: return
     val authority = context.applicationContext.packageName + ".flDownloader.provider"
-    val fileUri = downloadedTo!!.toUri()
+    val fileUri = downloadedPath.toUri()
+
     val mimeMap = MimeTypeMap.getSingleton()
     val ext = MimeTypeMap.getFileExtensionFromUrl(fileUri.encodedPath)
     var type = mimeMap.getMimeTypeFromExtension(ext)
     if (type == null) type = "*/*"
-    val uri = FileProvider.getUriForFile(context, authority, File(fileUri.path!!))
+    val uri = if (fileUri.scheme == "content") {
+      fileUri
+    } else {
+      FileProvider.getUriForFile(context, authority, File(fileUri.path!!))
+    }
 
     context.startActivity(
       Intent(Intent.ACTION_VIEW)
@@ -198,6 +208,10 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
 
   private suspend fun trackProgress(downloadId: Long?) {
     val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+    var finishDownload = false
+    var lastProgress = -1
+    var progress = 0
+
     val downloadUrl = manager.query(Query().setFilterById(downloadId!!)).use { cursor ->
       if (cursor.moveToFirst()) {
         cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_URI))
@@ -205,14 +219,13 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
         null
       }
     }
-    var finishDownload = false
-    var lastProgress = -1
-    var progress = 0
+    
     withContext(Dispatchers.Main) {
       channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 2, "downloadUrl" to downloadUrl))
     }
+    
     val timerCoroutine = CoroutineScope(Dispatchers.Default).launch {
-      SystemClock.sleep(15000)
+      delay(15000.milliseconds)
       if (isActive) {
         finishDownload = true
         withContext(Dispatchers.Main) {
@@ -221,99 +234,90 @@ class FlDownloaderPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Requ
             mapOf("downloadId" to downloadId, "progress" to 0, "status" to 4, "downloadUrl" to downloadUrl)
           )
         }
-        manager.remove(downloadId!!)
+        manager.remove(downloadId)
       }
     }
+    
     while (!finishDownload) {
-      val cursor: Cursor = manager.query(Query().setFilterById(downloadId!!))
-      if (cursor.moveToFirst()) {
-        when (cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
-          DownloadManager.STATUS_FAILED -> {
-            finishDownload = true
-            if (timerCoroutine.isActive) timerCoroutine.cancel()
-            val reason = cursor.getIntOrNull(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
-            val convertedReason = convertReasonString(reason)
-            Log.d("fl_downloader", "$convertedReason")
-            withContext(Dispatchers.Main) {
-              channel.invokeMethod("notifyProgress",
-                      mapOf("downloadId" to downloadId,
-                              "progress" to 0,
-                              "status" to 4,
-                              "reason" to convertedReason, "downloadUrl" to downloadUrl)
-              )
-            }
-          }
-          DownloadManager.STATUS_PAUSED -> {
-            finishDownload = true
-            if (timerCoroutine.isActive) timerCoroutine.cancel()
-            val reason = cursor.getIntOrNull(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
-            val convertedReason = convertReasonString(reason)
-            Log.d("fl_downloader", "$convertedReason")
-            val total =
-                    cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
-            if (total >= 0) {
-              val downloaded =
-                      cursor.getLong(
-                              cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                      )
-              progress = (downloaded * 100L / total).toInt()
-              withContext(Dispatchers.Main) {
-                channel.invokeMethod("notifyProgress",
-                        mapOf("downloadId" to downloadId,
-                                "progress" to progress,
-                                "status" to 3,
-                                "reason" to convertedReason, "downloadUrl" to downloadUrl)
-                )
-              }
-            } else {
-              withContext(Dispatchers.Main) {
-                channel.invokeMethod("notifyProgress",
-                        mapOf("downloadId" to downloadId,
-                                "progress" to progress,
-                                "status" to 3,
-                                "reason" to convertedReason, "downloadUrl" to downloadUrl)
-                )
-              }
-            }
-          }
-          DownloadManager.STATUS_PENDING -> {
-            withContext(Dispatchers.Main) {
-              channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 2, "downloadUrl" to downloadUrl))
-            }
-            SystemClock.sleep(250)
-          }
-          DownloadManager.STATUS_RUNNING -> {
-            val total =
-                    cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
-            if (total >= 0) {
+      manager.query(Query().setFilterById(downloadId)).use { cursor ->
+        if (cursor.moveToFirst()) {
+          when (cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
+            DownloadManager.STATUS_FAILED -> {
+              finishDownload = true
               if (timerCoroutine.isActive) timerCoroutine.cancel()
-              val downloaded =
-                      cursor.getLong(
-                              cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                      )
-              if (total != 0L) {
-                progress = (downloaded * 100L / total).toInt()
+              val reason = cursor.getIntOrNull(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
+              val convertedReason = convertReasonString(reason)
+              Log.d("fl_downloader", "$convertedReason")
+              withContext(Dispatchers.Main) {
+                channel.invokeMethod("notifyProgress",
+                        mapOf("downloadId" to downloadId,
+                                "progress" to 0,
+                                "status" to 4,
+                                "reason" to convertedReason, "downloadUrl" to downloadUrl)
+                )
               }
-              if (progress != lastProgress) {
-                lastProgress = progress
-                withContext(Dispatchers.Main) {
-                  channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 1, "downloadUrl" to downloadUrl))
+            }
+            DownloadManager.STATUS_PAUSED -> {
+              finishDownload = true
+              if (timerCoroutine.isActive) timerCoroutine.cancel()
+              val reason = cursor.getIntOrNull(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
+              val convertedReason = convertReasonString(reason)
+              Log.d("fl_downloader", "$convertedReason")
+              val total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+              if (total > 0L) {
+                val downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                progress = (downloaded * 100L / total).toInt()
+              } else {
+                progress = -1
+              }
+              withContext(Dispatchers.Main) {
+                channel.invokeMethod("notifyProgress",
+                        mapOf("downloadId" to downloadId,
+                                "progress" to progress,
+                                "status" to 3,
+                                "reason" to convertedReason, "downloadUrl" to downloadUrl)
+                )
+              }
+            }
+            DownloadManager.STATUS_PENDING -> {
+              withContext(Dispatchers.Main) {
+                channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to 0, "status" to 2, "downloadUrl" to downloadUrl))
+              }
+            }
+            DownloadManager.STATUS_RUNNING -> {
+              val total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+              if (total >= 0) {
+                if (timerCoroutine.isActive) timerCoroutine.cancel()
+                val downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                if (total > 0L) {
+                  progress = (downloaded * 100L / total).toInt()
+                } else {
+                  progress = -1
+                }
+                if (progress != lastProgress) {
+                  lastProgress = progress
+                  withContext(Dispatchers.Main) {
+                    channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 1, "downloadUrl" to downloadUrl))
+                  }
                 }
               }
             }
-          }
-          DownloadManager.STATUS_SUCCESSFUL -> {
-            val filePath = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
-            progress = 100
-            finishDownload = true
-            if (timerCoroutine.isActive) timerCoroutine.cancel()
-            withContext(Dispatchers.Main) {
-              channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 0, "filePath" to filePath, "downloadUrl" to downloadUrl))
+            DownloadManager.STATUS_SUCCESSFUL -> {
+              val filePath = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
+              progress = 100
+              finishDownload = true
+              if (timerCoroutine.isActive) timerCoroutine.cancel()
+              withContext(Dispatchers.Main) {
+                channel.invokeMethod("notifyProgress", mapOf("downloadId" to downloadId, "progress" to progress, "status" to 0, "filePath" to filePath, "downloadUrl" to downloadUrl))
+              }
             }
           }
+        } else { // The download is no longer in the DownloadManager database
+          finishDownload = true
+          if (timerCoroutine.isActive) timerCoroutine.cancel()
         }
       }
-      cursor.close()
+      delay(500.milliseconds)
     }
     return
   }

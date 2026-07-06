@@ -15,7 +15,7 @@ class FlDownloader {
     'dev.inceptusp.fl_downloader',
   );
 
-  static StreamController<bool> _permissionStatusStream = StreamController();
+  static Completer<bool>? _permissionStatus;
   static final StreamController<DownloadProgress> _progressStream =
       StreamController.broadcast();
 
@@ -39,9 +39,7 @@ class FlDownloader {
       }
       if (call.method == 'onRequestPermissionResult') {
         final result = call.arguments as bool;
-        _permissionStatusStream.add(result);
-        _permissionStatusStream.close();
-        _permissionStatusStream = StreamController();
+        _permissionStatus?.complete(result);
       }
       return Future.value(null);
     });
@@ -65,13 +63,18 @@ class FlDownloader {
       return StoragePermissionStatus.unknown;
     }
 
+    if (_permissionStatus != null && !_permissionStatus!.isCompleted) {
+      final permissionStatus = await _permissionStatus!.future;
+      return permissionStatus
+          ? StoragePermissionStatus.granted
+          : StoragePermissionStatus.denied;
+    }
+
     try {
-      bool? permissionStatus;
+      _permissionStatus = Completer<bool>();
       await _channel.invokeMethod<bool>('requestStoragePermission');
-      await for (bool event in _permissionStatusStream.stream) {
-        permissionStatus = event;
-      }
-      if (permissionStatus == null) return StoragePermissionStatus.unknown;
+      final permissionStatus = await _permissionStatus!.future;
+
       if (permissionStatus) {
         return StoragePermissionStatus.granted;
       } else {
@@ -80,6 +83,8 @@ class FlDownloader {
     } catch (e) {
       debugPrint(e.toString());
       return StoragePermissionStatus.unknown;
+    } finally {
+      _permissionStatus = null;
     }
   }
 
@@ -174,7 +179,7 @@ class FlDownloader {
   /// Cancels a list of ongoing downloads and return the number of canceled tasks
   static Future<int> cancel(List<dynamic> downloadIds) async {
     if (Platform.isAndroid) {
-      final convertedIds = Int64List.fromList(downloadIds as List<int>);
+      final convertedIds = Int64List.fromList(downloadIds.cast<int>());
       return await _channel.invokeMethod('cancel', {
         'downloadIds': convertedIds,
       });

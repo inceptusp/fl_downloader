@@ -5,6 +5,7 @@
 * Added `downloadUrl` parameter with the original request URL to `DownloadProgress` (closes [#23](https://github.com/inceptusp/fl_downloader/issues/23) and [#31](https://github.com/inceptusp/fl_downloader/issues/31) | thx to [@masooddalman](https://github.com/masooddalman))
 * Added support to set the notification type on Android (closes [#31](https://github.com/inceptusp/fl_downloader/issues/31) | thx to [@masooddalman](https://github.com/masooddalman))
 * Fixed the "download to sub folder" use case (closes [#31](https://github.com/inceptusp/fl_downloader/issues/31)) | Refers to [API Docs](https://pub.dev/documentation/fl_downloader/2.2.0/fl_downloader/FlDownloader/download.html)
+* Fixed a bug where the return of `cancel()` on iOS would have an incorrect number of cancelled downloads
 
 ## 2.1.0
 

@@ -29,7 +29,10 @@ class DownloadProgress {
   /// interger on Android and iOS, string on Windows
   final dynamic downloadId;
 
-  /// File download progress in percentage from 0 to 100
+  /// File download progress in percentage from 0 to 100.
+  ///
+  /// Can be -1 if the total content length is unknown (for example,
+  /// when the server does not provide a `Content-Length` header).
   final int progress;
 
   /// Download task status as a [DownloadStatus]

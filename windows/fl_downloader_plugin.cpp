@@ -178,7 +178,7 @@ namespace fl_downloader {
 				}
 			}
 
-			auto utf16_download_guids = helpers::Converters::Utf8ListFromUtf16List(download_guids);
+			auto utf16_download_guids = helpers::Converters::Utf16ListFromUtf8List(download_guids);
 
 			auto cancelled_downloads = Cancel(utf16_download_guids);
 
@@ -295,22 +295,24 @@ namespace fl_downloader {
 
 	concurrency::task<void> FlDownloaderPlugin::TrackProgress(LPCWSTR job_id, LPSTREAM p_stream) {
 		return create_task([this, job_id, p_stream] {
-			HRESULT hr;
-			IBackgroundCopyManager* l_pbcm = NULL;
-			IBackgroundCopyJob* p_job = NULL;
-			GUID guid;
+			HRESULT hrCom = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+        	HRESULT hr;
+        	IBackgroundCopyManager* l_pbcm = NULL;
+        	IBackgroundCopyJob* p_job = NULL;
+        	GUID guid;
 
-			CLSIDFromString(job_id, &guid);
-			auto utf8_guid_string = helpers::Converters::Utf8FromUtf16(job_id);
+        	CLSIDFromString(job_id, &guid);
+        	auto utf8_guid_string = helpers::Converters::Utf8FromUtf16(job_id);
 
-			hr = CoGetInterfaceAndReleaseStream(p_stream,
-				__uuidof(IBackgroundCopyManager), (void**)&l_pbcm);
+        	hr = CoGetInterfaceAndReleaseStream(p_stream,
+        	    __uuidof(IBackgroundCopyManager), (void**)&l_pbcm);
 
-			if(FAILED(hr))
-			{
-				std::wcout << ConvertReasonString(L"Failed to get copy of BITS interface. Progress will not be available", hr) << std::endl;
-				return;
-			}
+        	if(FAILED(hr))
+        	{
+        	    std::wcout << ConvertReasonString(L"Failed to get copy of BITS interface. Progress will not be available", hr) << std::endl;
+        	    if (SUCCEEDED(hrCom)) CoUninitialize();
+        	    return;
+        	}
 
 			hr = l_pbcm->GetJob(guid, &p_job);
 
@@ -337,19 +339,31 @@ namespace fl_downloader {
 						break;
 					}
 
-					// Get the AddFile URL from the BITS download service when needed
 					if (addfile_url.empty()) {
 						IEnumBackgroundCopyFiles* p_files = NULL;
 						IBackgroundCopyFile* p_file = NULL;
-						LPWSTR remote_name;
-
-						p_job->EnumFiles(&p_files);
-						p_files->Next(1, &p_file, NULL);
-						p_file->GetRemoteName(&remote_name);
-
-						addfile_url = helpers::Converters::Utf8FromUtf16(remote_name);
+						LPWSTR remote_name = NULL;
+						
+						hr = p_job->EnumFiles(&p_files);
+ 						if (SUCCEEDED(hr) && p_files) {
+ 							hr = p_files->Next(1, &p_file, NULL);
+ 							if (SUCCEEDED(hr) && p_file) {
+ 								hr = p_file->GetRemoteName(&remote_name);
+ 								if (SUCCEEDED(hr) && remote_name) {
+ 									addfile_url = helpers::Converters::Utf8FromUtf16(remote_name);
+ 								}
+ 							}
+ 						}
 
 						if (remote_name) CoTaskMemFree(remote_name);
+						if (p_file) {
+ 							p_file->Release();
+ 							p_file = NULL;
+ 						}
+ 						if (p_files) {
+ 							p_files->Release();
+ 							p_files = NULL;
+ 						}
 					}
 
 					if (state == BG_JOB_STATE_CONNECTING)
@@ -492,21 +506,25 @@ namespace fl_downloader {
 
 				CancelWaitableTimer(h_timer);
 				CloseHandle(h_timer);
-
-				if (l_pbcm) {
-					l_pbcm->Release();
-					l_pbcm = NULL;
-				}
 			}
 			else
 			{
 				std::wcout << ConvertReasonString(L"Failed to get download job to track progress", hr) << std::endl;
 			}
 
-			if (p_job) {
-				p_job->Release();
-				p_job = NULL;
-			}
+			if (l_pbcm) {
+        	    l_pbcm->Release();
+        	    l_pbcm = NULL;
+        	}
+			
+        	if (p_job) {
+        	    p_job->Release();
+        	    p_job = NULL;
+        	}
+			
+        	if (SUCCEEDED(hrCom)) {
+        	    CoUninitialize();
+        	}
 			return;
 		});
 	}
@@ -575,6 +593,7 @@ namespace fl_downloader {
 				PathRemoveExtension(p_new_full_file_path);
 				new_name << p_new_full_file_path << L" (" << count << L")" << file_extension;
 				lstrcpy(p_new_full_file_path, new_name.str().c_str());
+				count++;
 			}
 
 			if (((std::wstring)p_new_full_file_path).compare(full_file_path) == 0)
@@ -584,6 +603,7 @@ namespace fl_downloader {
 			}
 			else
 			{
+				CoTaskMemFree(full_file_path);
 				full_file_path = p_new_full_file_path;
 				return 1;
 			}
