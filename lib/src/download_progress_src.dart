@@ -20,7 +20,7 @@ enum DownloadStatus {
   /// The download is being canceled.
   ///
   /// This status is only used on iOS.
-  canceling;
+  canceling,
 }
 
 class DownloadProgress {
@@ -29,7 +29,10 @@ class DownloadProgress {
   /// interger on Android and iOS, string on Windows
   final dynamic downloadId;
 
-  /// File download progress in percentage from 0 to 100
+  /// File download progress in percentage from 0 to 100.
+  ///
+  /// Can be -1 if the total content length is unknown (for example,
+  /// when the server does not provide a `Content-Length` header).
   final int progress;
 
   /// Download task status as a [DownloadStatus]
@@ -37,6 +40,9 @@ class DownloadProgress {
 
   /// Downloaded file path
   late final String? filePath;
+
+  /// The original download URL of the file.
+  late final String? downloadUrl;
 
   /// Download status reason. This is only available when the download status is failed (or paused on Android).
   late final StatusReason? statusReason;
@@ -47,6 +53,7 @@ class DownloadProgress {
     required this.progress,
     required this.status,
     this.filePath,
+    this.downloadUrl,
     this.statusReason,
   });
 
@@ -56,6 +63,9 @@ class DownloadProgress {
       progress: map['progress'],
       status: DownloadStatus.values[map['status']],
       filePath: map.containsKey('filePath') ? map['filePath'] : null,
+      downloadUrl: map.containsKey('downloadUrl')
+          ? map['downloadUrl'] as String?
+          : null,
       statusReason: map.containsKey('reason')
           ? StatusReason._fromMap({
               'code': map['reason'] != null
@@ -72,7 +82,7 @@ class DownloadProgress {
 
   @override
   String toString() {
-    return 'Progress{downloadId: $downloadId, progress: $progress, status: $status, filePath: $filePath, statusReason: $statusReason}';
+    return 'Progress{downloadId: $downloadId, progress: $progress, status: $status, filePath: $filePath, downloadUrl: $downloadUrl, statusReason: $statusReason}';
   }
 }
 
@@ -94,18 +104,12 @@ class StatusReason {
   final String? message;
 
   /// A class that carries extra messages for download status when it is failed or paused
-  StatusReason({
-    required this.code,
-    this.type,
-    this.message,
-  });
+  StatusReason({required this.code, this.type, this.message});
 
   factory StatusReason._fromMap(Map<String, dynamic> map) {
     final statusCode = map['code'].toString();
     return StatusReason(
-      code: int.parse(
-        statusCode.isEmpty ? '-1' : statusCode,
-      ),
+      code: int.parse(statusCode.isEmpty ? '-1' : statusCode),
       message: map['message'],
     );
   }

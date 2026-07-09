@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'android_notification_type_src.dart';
 import 'storage_permission_status_src.dart';
 
 part 'download_progress_src.dart';
@@ -14,7 +15,7 @@ class FlDownloader {
     'dev.inceptusp.fl_downloader',
   );
 
-  static StreamController<bool> _permissionStatusStream = StreamController();
+  static Completer<bool>? _permissionStatus;
   static final StreamController<DownloadProgress> _progressStream =
       StreamController.broadcast();
 
@@ -38,9 +39,7 @@ class FlDownloader {
       }
       if (call.method == 'onRequestPermissionResult') {
         final result = call.arguments as bool;
-        _permissionStatusStream.add(result);
-        _permissionStatusStream.close();
-        _permissionStatusStream = StreamController();
+        _permissionStatus?.complete(result);
       }
       return Future.value(null);
     });
@@ -64,13 +63,18 @@ class FlDownloader {
       return StoragePermissionStatus.unknown;
     }
 
+    if (_permissionStatus != null && !_permissionStatus!.isCompleted) {
+      final permissionStatus = await _permissionStatus!.future;
+      return permissionStatus
+          ? StoragePermissionStatus.granted
+          : StoragePermissionStatus.denied;
+    }
+
     try {
-      bool? permissionStatus;
+      _permissionStatus = Completer<bool>();
       await _channel.invokeMethod<bool>('requestStoragePermission');
-      await for (bool event in _permissionStatusStream.stream) {
-        permissionStatus = event;
-      }
-      if (permissionStatus == null) return StoragePermissionStatus.unknown;
+      final permissionStatus = await _permissionStatus!.future;
+
       if (permissionStatus) {
         return StoragePermissionStatus.granted;
       } else {
@@ -79,6 +83,8 @@ class FlDownloader {
     } catch (e) {
       debugPrint(e.toString());
       return StoragePermissionStatus.unknown;
+    } finally {
+      _permissionStatus = null;
     }
   }
 
@@ -97,13 +103,14 @@ class FlDownloader {
   /// if the name extracted from the url contains forbidden characters, this characters
   /// will be replaced by a dash (-). The list of forbidden characters are:
   /// ```bash
-  /// # % & { } \ < > * ? / $ ! ' " : @ + ` | =
+  /// # % & { } \ < > * ? $ ! ' " : @ + ` | =
   /// ```
   /// (which covers all characters that are not allowed in most file systems)
   static Future<dynamic> download(
     String url, {
     Map<String, String>? headers,
     String? fileName,
+    AndroidNotificationType? androidNotificationType,
   }) async {
     if (Platform.isWindows) {
       final info = _WindowsImpl.prepareDownloadData(url, fileName: fileName);
@@ -117,6 +124,8 @@ class FlDownloader {
         'url': url,
         'headers': headers,
         'fileName': fileName,
+        if (androidNotificationType != null)
+          'notificationType': androidNotificationType.value,
       });
     }
   }
@@ -137,10 +146,10 @@ class FlDownloader {
   /// If called on iOS, this method will do nothing.
   static Future<void> attachDownloadProgress(dynamic downloadId) async {
     if (Platform.isIOS) return;
-    return await _channel
-        .invokeMethod('attachDownloadTracker', <String, dynamic>{
-      'downloadId': downloadId,
-    });
+    return await _channel.invokeMethod(
+      'attachDownloadTracker',
+      <String, dynamic>{'downloadId': downloadId},
+    );
   }
 
   /// Open the downlaoded file on the default file loader on each platform
@@ -170,7 +179,7 @@ class FlDownloader {
   /// Cancels a list of ongoing downloads and return the number of canceled tasks
   static Future<int> cancel(List<dynamic> downloadIds) async {
     if (Platform.isAndroid) {
-      final convertedIds = Int64List.fromList(downloadIds as List<int>);
+      final convertedIds = Int64List.fromList(downloadIds.cast<int>());
       return await _channel.invokeMethod('cancel', {
         'downloadIds': convertedIds,
       });

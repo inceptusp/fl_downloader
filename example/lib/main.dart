@@ -26,6 +26,7 @@ class _MyAppState extends State<MyApp> {
   int progress = 0;
   dynamic downloadId;
   String? status;
+  String? downloadUrl;
   late StreamSubscription progressStream;
 
   @override
@@ -38,6 +39,7 @@ class _MyAppState extends State<MyApp> {
           progress = event.progress;
           downloadId = event.downloadId;
           status = event.status.name;
+          downloadUrl = event.downloadUrl;
         });
         // This is a way of auto-opening downloaded file right after a download is completed
         FlDownloader.openFile(filePath: event.filePath);
@@ -47,6 +49,7 @@ class _MyAppState extends State<MyApp> {
           progress = event.progress;
           downloadId = event.downloadId;
           status = event.status.name;
+          downloadUrl = event.downloadUrl;
         });
       } else if (event.status == DownloadStatus.failed) {
         debugPrint('event: $event');
@@ -54,6 +57,7 @@ class _MyAppState extends State<MyApp> {
           progress = event.progress;
           downloadId = event.downloadId;
           status = event.status.name;
+          downloadUrl = event.downloadUrl;
         });
       } else if (event.status == DownloadStatus.paused) {
         debugPrint('Download paused');
@@ -61,6 +65,7 @@ class _MyAppState extends State<MyApp> {
           progress = event.progress;
           downloadId = event.downloadId;
           status = event.status.name;
+          downloadUrl = event.downloadUrl;
         });
         // Here I am attaching the download progress to the download task again
         // after an paused status because the download task can be paused by
@@ -79,6 +84,7 @@ class _MyAppState extends State<MyApp> {
           progress = event.progress;
           downloadId = event.downloadId;
           status = event.status.name;
+          downloadUrl = event.downloadUrl;
         });
       }
     });
@@ -97,9 +103,7 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData.light(useMaterial3: true),
       darkTheme: ThemeData.dark(useMaterial3: true),
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('FlDownloader example app'),
-        ),
+        appBar: AppBar(title: const Text('FlDownloader example app')),
         body: Column(
           children: [
             if (progress > 0 && progress < 100)
@@ -131,7 +135,8 @@ class _MyAppState extends State<MyApp> {
             Text(
               'Download id: $downloadId\n'
               'Status: $status\n'
-              'Progress: $progress%',
+              'Progress: $progress%\n'
+              'URL: $downloadUrl',
             ),
             const Spacer(),
           ],

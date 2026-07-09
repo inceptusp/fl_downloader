@@ -47,7 +47,7 @@ namespace helpers {
 		return utf8_string;
 	}
 
-	std::vector<std::wstring> Converters::Utf8ListFromUtf16List(const std::vector<std::string>& utf8_list) {
+	std::vector<std::wstring> Converters::Utf16ListFromUtf8List(const std::vector<std::string>& utf8_list) {
 		if (utf8_list.empty()) {
 			return std::vector<std::wstring>();
 		}

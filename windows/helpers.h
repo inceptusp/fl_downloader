@@ -13,7 +13,7 @@ namespace helpers {
 
 		static std::string Utf8FromUtf16(const std::wstring& utf16_string);
 
-		static std::vector<std::wstring> Utf8ListFromUtf16List(const std::vector<std::string>& utf8_list);
+		static std::vector<std::wstring> Utf16ListFromUtf8List(const std::vector<std::string>& utf8_list);
 
 		template<typename T1, typename T2>
 		static std::map<T1, T2> EncodableMapToMap(flutter::EncodableMap);

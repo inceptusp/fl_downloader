@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 group = "dev.inceptusp.fl_downloader"
 version = "1.0"
@@ -10,7 +11,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.13.0")
+        classpath("com.android.tools.build:gradle:8.13.2")
     }
 }
 
@@ -23,7 +24,12 @@ rootProject.allprojects {
 
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+}
+
+val agpMajor = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.substringBefore('.').toInt()
+
+if (agpMajor < 9) {
+   apply(plugin = "org.jetbrains.kotlin.android")
 }
 
 android {
@@ -38,11 +44,11 @@ android {
     defaultConfig {
         minSdk = 24
     }
+}
 
-    kotlin {
-        compilerOptions {
-            jvmTarget = JvmTarget.JVM_17
-        }
+project.extensions.configure(KotlinAndroidProjectExtension::class.java) {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 
